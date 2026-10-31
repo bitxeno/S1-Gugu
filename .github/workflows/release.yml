@@ -19,7 +19,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Generate Xcode project
         run: |
@@ -41,6 +41,7 @@ jobs:
             -derivedDataPath build/DerivedData \
             -archivePath build/S1Gugu.xcarchive \
             archive \
+            -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
