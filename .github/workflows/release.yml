@@ -1,0 +1,72 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Archive (unsigned)
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="1.0"
+          fi
+          xcodebuild \
+            -project S1Gugu.xcodeproj \
+            -scheme S1Gugu \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build/DerivedData \
+            -archivePath build/S1Gugu.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$VERSION"
+
+      - name: Package IPA
+        run: |
+          cd build
+          mkdir Payload
+          cp -R "S1Gugu.xcarchive/Products/Applications/S1Gugu.app" Payload/
+          ditto -c -k --sequesterRsrc --keepParent Payload S1Gugu.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: S1Gugu-${{ github.ref_name }}-unsigned
+          path: build/S1Gugu.ipa
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "build/S1Gugu.ipa#S1Gugu-${GITHUB_REF_NAME}-unsigned.ipa" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes

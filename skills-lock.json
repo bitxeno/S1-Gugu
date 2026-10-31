@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "apple-hig": {
+      "source": "AyushRajSinghParihar/apple-human-interface-skills",
+      "sourceType": "github",
+      "skillPath": "skills/apple-hig/SKILL.md",
+      "computedHash": "5fccecc583630b72230825c1a858461478134eaf1fdbfcff1085f230414d89fe"
+    },
+    "ios-application-dev": {
+      "source": "minimax-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/ios-application-dev/SKILL.md",
+      "computedHash": "62e475d290a760e8a24085a35381258e7595297da16157ac8bc11aea340c2d9a"
+    },
+    "sqlite-data-usage-guide": {
+      "source": "bitxeno/sqlite-data-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "d53eb88ec4e2ff48ca8307771a3b5a09ff0c1a446dff3ebf483dc5cf995b3c89"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# local agent skills
+.agents/
+
+# Xcode build artifacts
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+
+# Generated Xcode project — regenerate with `xcodegen generate`
+S1Gugu.xcodeproj
