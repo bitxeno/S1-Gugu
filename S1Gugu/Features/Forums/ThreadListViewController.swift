@@ -5,19 +5,35 @@ import SnapKit
 
 final class ThreadCell: UICollectionViewCell {
 
+    private let replyCountChip = UIView()
+    private let replyCountLabel = UILabel()
     private let titleLabel = UILabel()
     private let metaLabel = UILabel()
-    private let replyCountLabel = UILabel()
-    private let lastPostLabel = UILabel()
-    private let badgeLabel = UILabel()
-    private let badgeStack = UIStackView()
-    private let separatorLine = UIView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
 
+        // 回复数徽标(参考 S1 移动版列表:前置定宽灰底数字,≥1 万缩写为 K)
+        replyCountLabel.font = .preferredFont(forTextStyle: .footnote)
+        replyCountLabel.textColor = Theme.secondaryLabel
+        replyCountLabel.adjustsFontForContentSizeCategory = true
+        // 定宽徽标:极端大字体下缩字兜底
+        replyCountLabel.adjustsFontSizeToFitWidth = true
+        replyCountLabel.minimumScaleFactor = 0.75
+        replyCountLabel.textAlignment = .center
+        replyCountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        replyCountChip.backgroundColor = .secondarySystemFill
+        replyCountChip.layer.cornerRadius = 4
+        replyCountChip.clipsToBounds = true
+        replyCountChip.addSubview(replyCountLabel)
+        replyCountLabel.snp.makeConstraints { make in
+            make.leading.greaterThanOrEqualToSuperview().inset(4)
+            make.trailing.lessThanOrEqualToSuperview().inset(4)
+            make.centerX.equalToSuperview()
+            make.top.bottom.equalToSuperview().inset(3)
+        }
+
         titleLabel.font = .preferredFont(forTextStyle: .headline)
-        titleLabel.textColor = Theme.label
         titleLabel.numberOfLines = 2
         titleLabel.adjustsFontForContentSizeCategory = true
 
@@ -25,44 +41,25 @@ final class ThreadCell: UICollectionViewCell {
         metaLabel.textColor = Theme.secondaryLabel
         metaLabel.adjustsFontForContentSizeCategory = true
 
-        badgeLabel.font = .preferredFont(forTextStyle: .caption1)
-        badgeLabel.textColor = Theme.accent
-        badgeLabel.adjustsFontForContentSizeCategory = true
-
-        replyCountLabel.font = .preferredFont(forTextStyle: .subheadline)
-        replyCountLabel.textColor = Theme.secondaryLabel
-        replyCountLabel.adjustsFontForContentSizeCategory = true
-        replyCountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-        lastPostLabel.font = .preferredFont(forTextStyle: .caption1)
-        lastPostLabel.textColor = Theme.tertiaryLabel
-        lastPostLabel.adjustsFontForContentSizeCategory = true
-        lastPostLabel.textAlignment = .right
-        lastPostLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-
-        let textStack = UIStackView(arrangedSubviews: [titleLabel, badgeLabel, metaLabel])
-        textStack.axis = .vertical
-        textStack.alignment = .fill
-        textStack.spacing = 4
-
-        let rightStack = UIStackView(arrangedSubviews: [replyCountLabel, lastPostLabel])
-        rightStack.axis = .vertical
-        rightStack.alignment = .trailing
-        rightStack.spacing = 4
-
-        contentView.addSubview(textStack)
-        contentView.addSubview(rightStack)
-        textStack.snp.makeConstraints { make in
+        contentView.addSubview(replyCountChip)
+        contentView.addSubview(titleLabel)
+        contentView.addSubview(metaLabel)
+        replyCountChip.snp.makeConstraints { make in
             make.leading.equalTo(contentView.layoutMarginsGuide.snp.leading)
+            make.top.equalToSuperview().inset(12)
+            make.width.equalTo(40)
+        }
+        titleLabel.snp.makeConstraints { make in
+            make.leading.equalTo(replyCountChip.snp.trailing).offset(10)
             make.top.equalToSuperview().inset(10)
-            make.bottom.lessThanOrEqualToSuperview().inset(10)
-            make.trailing.lessThanOrEqualTo(rightStack.snp.leading).offset(-12)
-        }
-        rightStack.snp.makeConstraints { make in
             make.trailing.equalTo(contentView.layoutMarginsGuide.snp.trailing)
-            make.centerY.equalToSuperview()
         }
-        rightStack.setContentHuggingPriority(.required, for: .horizontal)
+        metaLabel.snp.makeConstraints { make in
+            make.leading.equalTo(replyCountChip.snp.trailing).offset(10)
+            make.top.equalTo(titleLabel.snp.bottom).offset(8)
+            make.trailing.equalTo(contentView.layoutMarginsGuide.snp.trailing)
+            make.bottom.lessThanOrEqualToSuperview().inset(10)
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -70,20 +67,37 @@ final class ThreadCell: UICollectionViewCell {
     }
 
     func configure(_ thread: Thread, isRead: Bool) {
+        replyCountLabel.text = Self.replyCountText(thread.replyCount)
+
         if thread.isHiddenByBlacklist {
+            titleLabel.attributedText = nil
             titleLabel.text = "已屏蔽主题"
             titleLabel.textColor = Theme.tertiaryLabel
-            badgeLabel.text = thread.blacklistRemark.map { "(\($0))" }
-            metaLabel.text = thread.author
+            metaLabel.text = thread.blacklistRemark.map { "\(thread.author) · \($0)" } ?? thread.author
             metaLabel.textColor = Theme.tertiaryLabel
-            replyCountLabel.text = ""
-            lastPostLabel.text = ""
             return
         }
 
-        titleLabel.text = thread.title
-        titleLabel.textColor = isRead ? Theme.secondaryLabel : Theme.label
-        badgeLabel.text = badgeText(for: thread)
+        // 置顶/投票方框徽标以文本附件形式内联在标题前:换行自然,
+        // 第二行从标题 leading 起始,徽标只占第一行前缀
+        let titleFont = UIFont.preferredFont(forTextStyle: .headline)
+        let titleColor: UIColor = isRead ? Theme.secondaryLabel : Theme.label
+        let accent = Theme.accent.resolvedColor(with: traitCollection)
+        let content = NSMutableAttributedString()
+        if thread.isSticky {
+            content.append(NSAttributedString(attachment: Self.badgeAttachment(text: "置顶", accent: accent, titleFont: titleFont, scale: traitCollection.displayScale)))
+        }
+        if thread.isVote {
+            content.append(NSAttributedString(attachment: Self.badgeAttachment(text: "投票", accent: accent, titleFont: titleFont, scale: traitCollection.displayScale)))
+        }
+        if content.length > 0 {
+            content.append(NSAttributedString(string: " ", attributes: [.font: titleFont]))
+        }
+        content.append(NSAttributedString(
+            string: thread.title,
+            attributes: [.font: titleFont, .foregroundColor: titleColor]
+        ))
+        titleLabel.attributedText = content
 
         var meta: [String] = []
         if !thread.author.isEmpty { meta.append(thread.author) }
@@ -91,19 +105,62 @@ final class ThreadCell: UICollectionViewCell {
         if !published.isEmpty { meta.append(published) }
         metaLabel.text = meta.joined(separator: " · ")
         metaLabel.textColor = Theme.secondaryLabel
-
-        replyCountLabel.text = thread.replyCount > 0
-            ? "\(thread.replyCount) 回复"
-            : nil
-        lastPostLabel.text = thread.lastPostText
     }
 
-    private func badgeText(for thread: Thread) -> String? {
-        var badges: [String] = []
-        if thread.isSticky { badges.append("置顶") }
-        if thread.isVote { badges.append("投票") }
-        if thread.hasAttachment { badges.append("附件") }
-        return badges.joined(separator: " · ").isEmpty ? nil : badges.joined(separator: " · ")
+    // MARK: 内联方框徽标
+
+    private static var badgeImageCache: [String: UIImage] = [:]
+
+    /// 方框徽标渲染为图片(accent 描边 + 圆角,内留 padding),按颜色/倍率缓存
+    private static func badgeImage(text: String, accent: UIColor, scale: CGFloat) -> UIImage {
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        accent.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        let key = "\(text)|\(Int(red * 255)),\(Int(green * 255)),\(Int(blue * 255))|\(scale)"
+        if let cached = badgeImageCache[key] { return cached }
+
+        let font = UIFont.preferredFont(forTextStyle: .caption1)
+        let insets = UIEdgeInsets(top: 2, left: 5, bottom: 2, right: 5)
+        let textSize = (text as NSString).size(withAttributes: [.font: font])
+        let size = CGSize(
+            width: ceil(textSize.width) + insets.left + insets.right + 1,
+            height: ceil(textSize.height) + insets.top + insets.bottom + 1
+        )
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = max(scale, 1)
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            let border = UIBezierPath(
+                roundedRect: CGRect(origin: .zero, size: size).insetBy(dx: 0.5, dy: 0.5),
+                cornerRadius: 3
+            )
+            accent.withAlphaComponent(0.45).setStroke()
+            border.lineWidth = 1
+            border.stroke()
+            (text as NSString).draw(
+                at: CGPoint(x: insets.left, y: insets.top),
+                withAttributes: [.font: font, .foregroundColor: accent]
+            )
+        }
+        badgeImageCache[key] = image
+        return image
+    }
+
+    /// 文本附件:chip 图片相对标题首行 cap 高度垂直居中
+    private static func badgeAttachment(text: String, accent: UIColor, titleFont: UIFont, scale: CGFloat) -> NSTextAttachment {
+        let image = badgeImage(text: text, accent: accent, scale: scale)
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = CGRect(
+            x: 0,
+            y: ((titleFont.capHeight - image.size.height) / 2).rounded(),
+            width: image.size.width,
+            height: image.size.height
+        )
+        return attachment
+    }
+
+    /// 8891 → "8891",13041 → "13.0K"
+    private static func replyCountText(_ count: Int) -> String {
+        count >= 10_000 ? String(format: "%.1fK", Double(count) / 1000) : "\(count)"
     }
 }
 
