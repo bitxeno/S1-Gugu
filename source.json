@@ -1,0 +1,61 @@
+{
+  "name": "S1 Gugu",
+  "identifier": "app.bitxeno.s1gugu.source",
+  "subtitle": "S1 Gugu builds.",
+  "description": "S1 Gugu, an iOS client for the Stage1st forum. Builds come straight from https://github.com/bitxeno/S1-Gugu/releases.",
+  "website": "https://github.com/bitxeno/S1-Gugu",
+  "tintColor": "#00B0FF",
+  "apps": [
+    {
+      "name": "S1 Gugu",
+      "bundleIdentifier": "app.bitxeno.S1Gugu",
+      "developerName": "bitxeno",
+      "subtitle": "Stage1st forum iOS client",
+      "localizedDescription": "S1 Gugu, an iOS client for the Stage1st forum (bbs.saraba1st.com).",
+      "minOSVersion": "17.0",
+      "versions": [
+        {
+          "version": "0.4.0",
+          "date": "2026-11-01T14:58:02Z",
+          "localizedDescription": "**Full Changelog**: https://github.com/bitxeno/S1-Gugu/compare/v0.3.1...v0.4.0",
+          "downloadURL": "https://github.com/bitxeno/S1-Gugu/releases/download/v0.4.0/S1Gugu.ipa",
+          "size": 5036943,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "0.3.1",
+          "date": "2026-11-01T13:53:29Z",
+          "localizedDescription": "**Full Changelog**: https://github.com/bitxeno/S1-Gugu/compare/v0.3.0...v0.3.1",
+          "downloadURL": "https://github.com/bitxeno/S1-Gugu/releases/download/v0.3.1/S1Gugu.ipa",
+          "size": 5027722,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-11-01T13:05:55Z",
+          "localizedDescription": "**Full Changelog**: https://github.com/bitxeno/S1-Gugu/compare/v0.2.0...v0.3.0",
+          "downloadURL": "https://github.com/bitxeno/S1-Gugu/releases/download/v0.3.0/S1Gugu.ipa",
+          "size": 5025553,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-11-01T09:43:57Z",
+          "localizedDescription": "**Full Changelog**: https://github.com/bitxeno/S1-Gugu/compare/v0.1.0...v0.2.0",
+          "downloadURL": "https://github.com/bitxeno/S1-Gugu/releases/download/v0.2.0/S1Gugu.ipa",
+          "size": 5014902,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-31T10:02:01Z",
+          "localizedDescription": "**Full Changelog**: https://github.com/bitxeno/S1-Gugu/commits/v0.1.0",
+          "downloadURL": "https://github.com/bitxeno/S1-Gugu/releases/download/v0.1.0/S1Gugu.ipa",
+          "size": 4997667,
+          "minOSVersion": "17.0"
+        }
+      ]
+    }
+  ],
+  "news": []
+}

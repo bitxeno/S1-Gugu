@@ -71,3 +71,66 @@ jobs:
             "build/S1Gugu.ipa#S1Gugu-${GITHUB_REF_NAME}-unsigned.ipa" \
             --title "${GITHUB_REF_NAME}" \
             --generate-notes
+
+      - name: Update AltStore source
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/altsource
+
+          # 以仓库根目录的 source.json 为底稿(缺失时从空 source 起步)
+          if [[ -s source.json ]]; then
+            cp source.json build/altsource/source.json
+          else
+            jq -n '{
+              name: "S1 Gugu",
+              identifier: "app.bitxeno.s1gugu.source",
+              subtitle: "S1 Gugu builds.",
+              description: "S1 Gugu, an iOS client for the Stage1st forum. Builds come straight from https://github.com/bitxeno/S1-Gugu/releases.",
+              website: "https://github.com/bitxeno/S1-Gugu",
+              tintColor: "#00B0FF",
+              apps: [{
+                name: "S1 Gugu",
+                bundleIdentifier: "app.bitxeno.S1Gugu",
+                developerName: "bitxeno",
+                subtitle: "Stage1st forum iOS client",
+                localizedDescription: "S1 Gugu, an iOS client for the Stage1st forum (bbs.saraba1st.com).",
+                minOSVersion: "17.0",
+                versions: []
+              }],
+              news: []
+            }' > build/altsource/source.json
+          fi
+
+          # 版本条目:下载地址指向同 tag 的 IPA 资产
+          IPA_URL="https://github.com/${REPO}/releases/download/${TAG}/S1Gugu.ipa"
+          IPA_SIZE=$(stat -f%z build/S1Gugu.ipa)
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          NOTES=$(gh release view "$TAG" --repo "$REPO" --json body --jq .body)
+
+          # 组装新版本条目(release notes 作为 localizedDescription 原样嵌入)
+          jq -n --arg version "${TAG#v}" --arg date "$DATE" --arg notes "$NOTES" \
+                --arg url "$IPA_URL" --arg size "$IPA_SIZE" \
+                '{version: $version, date: $date, localizedDescription: $notes,
+                  downloadURL: $url, size: ($size | tonumber), minOSVersion: "17.0"}' \
+            > build/altsource/version.json
+
+          # versions 已有同版本号则替换,否则插到最前
+          jq --slurpfile entry build/altsource/version.json '
+            .apps[0].versions =
+              ([$entry[0]] + [.apps[0].versions[] | select(.version != $entry[0].version)])
+          ' build/altsource/source.json > build/altsource/source.new.json
+          mv build/altsource/source.new.json build/altsource/source.json
+
+          # 通过 Contents API 提交回 main(转 public 后即可用 raw URL 供 AltStore 订阅)
+          jq -c . build/altsource/source.json > build/altsource/source.min.json
+          SHA=$(gh api "repos/${REPO}/contents/source.json?ref=main" --jq '.sha // empty' 2>/dev/null) || SHA=""
+          ARGS=(--method PUT --field message "chore: update AltStore source for ${TAG}" \
+                --field content "$(base64 -i build/altsource/source.min.json)")
+          [[ -n "$SHA" ]] && ARGS+=(--field sha "$SHA")
+          gh api "repos/${REPO}/contents/source.json" "${ARGS[@]}" > /dev/null
+          echo "source.json committed to main for ${TAG}"
