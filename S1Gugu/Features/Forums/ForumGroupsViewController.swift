@@ -17,14 +17,22 @@ final class ForumGroupsViewController: UIViewController {
         case forum(Forum)
     }
 
-    /// 分类名作为 Section 标题;收藏区块标题「收藏」
+    /// 分类名作为 Section 标题;收藏区块标题「收藏」。
+    /// moveRowAt 必须由数据源实现,UIKit 据此决定是否显示拖动滑块
     final class DataSource: UITableViewDiffableDataSource<String, ListItem> {
+        /// 收藏行拖动落地(source/destination row,均在收藏区块内)
+        var onMoveRow: ((Int, Int) -> Void)?
+
         override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
             sectionIdentifier(for: section) == Section.favorites ? "收藏" : sectionIdentifier(for: section)
         }
 
         override func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
             sectionIdentifier(for: indexPath.section) == Section.favorites
+        }
+
+        override func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
+            onMoveRow?(sourceIndexPath.row, destinationIndexPath.row)
         }
     }
 
@@ -62,6 +70,9 @@ final class ForumGroupsViewController: UIViewController {
 
         dataSource = DataSource(tableView: tableView) { [weak self] tableView, indexPath, item in
             self?.configureCell(tableView, at: indexPath, item: item) ?? UITableViewCell()
+        }
+        dataSource.onMoveRow = { [weak self] sourceRow, destinationRow in
+            self?.handleMoveRow(sourceRow: sourceRow, destinationRow: destinationRow)
         }
 
         view.addSubview(tableView)
@@ -322,16 +333,16 @@ extension ForumGroupsViewController: UITableViewDelegate {
         return [dragItem]
     }
 
-    func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
-        guard dataSource.sectionIdentifier(for: sourceIndexPath.section) == Section.favorites,
-              dataSource.sectionIdentifier(for: destinationIndexPath.section) == Section.favorites else { return }
+    // MARK: 拖动排序落地(DataSource.moveRowAt 转发,行均在收藏区块内)
+
+    private func handleMoveRow(sourceRow: Int, destinationRow: Int) {
         var snapshot = dataSource.snapshot()
         let favorites = snapshot.itemIdentifiers(inSection: Section.favorites)
-        guard favorites.indices.contains(sourceIndexPath.row),
-              favorites.indices.contains(destinationIndexPath.row) else { return }
-        let moved = favorites[sourceIndexPath.row]
+        guard favorites.indices.contains(sourceRow),
+              favorites.indices.contains(destinationRow) else { return }
+        let moved = favorites[sourceRow]
         var reordered = favorites
-        reordered.move(fromOffsets: IndexSet(integer: sourceIndexPath.row), toOffset: destinationIndexPath.row)
+        reordered.move(fromOffsets: IndexSet(integer: sourceRow), toOffset: destinationRow)
         guard reordered != favorites else { return }
         // 用移动后相邻条目作锚点,把重排以增量 move 应用到当前快照
         let movedIndex = reordered.firstIndex(of: moved) ?? 0
