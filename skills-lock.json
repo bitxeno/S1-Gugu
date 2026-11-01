@@ -7,6 +7,162 @@
       "skillPath": "skills/apple-hig/SKILL.md",
       "computedHash": "5fccecc583630b72230825c1a858461478134eaf1fdbfcff1085f230414d89fe"
     },
+    "asc-ad-hoc-distribution": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-ad-hoc-distribution/SKILL.md",
+      "computedHash": "0389eede5ba64d18e8695b59e6b6d3b1ebf06df9dc481d237f4ef7eb03663f60"
+    },
+    "asc-analytics-reports": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-analytics-reports/SKILL.md",
+      "computedHash": "a4ad1662022819a6e9903754ab21abc700f99702ca0f41fcdb46f34be25b266f"
+    },
+    "asc-app-create-ui": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-app-create-ui/SKILL.md",
+      "computedHash": "de1c1ab06cee0310a4eb7f4e3b5b79cb182fe856ff892b1902a310a40af94da1"
+    },
+    "asc-apple-ads": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-apple-ads/SKILL.md",
+      "computedHash": "4955f038bd95143063325d4d329a4d920863fffeef183bed9e3ba67043e95151"
+    },
+    "asc-aso-audit": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-aso-audit/SKILL.md",
+      "computedHash": "85c698994feae406bdf1c71179a838877a5ec5b3270f6e458cc4dfec9ba42f85"
+    },
+    "asc-build-lifecycle": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-build-lifecycle/SKILL.md",
+      "computedHash": "a527fbf5eda59f8d00131fdcdce7f6a8b5ae86952bb1b729dabce8b5d22471a9"
+    },
+    "asc-cli-usage": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-cli-usage/SKILL.md",
+      "computedHash": "2825683618b6d60d87f3790cb4762e5e4d641cdbe6da8c39b81ab18ae710b971"
+    },
+    "asc-crash-triage": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-crash-triage/SKILL.md",
+      "computedHash": "a02aa01ac00d9ce83e940d155325ba7a515c0d418a3bf405285ea747ee815dff"
+    },
+    "asc-id-resolver": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-id-resolver/SKILL.md",
+      "computedHash": "e47511a6ddbfae0cfd8faaffc97e9968afef549fc1cc40ba628f20d06a6c7965"
+    },
+    "asc-in-app-events": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-in-app-events/SKILL.md",
+      "computedHash": "e0087a1aa20d6c4b858810888252f222655ca70311413629175c9bca1b4da946"
+    },
+    "asc-localize-metadata": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-localize-metadata/SKILL.md",
+      "computedHash": "7ee40cae21c8ac15cc866aaa78057102d6862c7a6ca9ecbfe8e8924ce47a3a45"
+    },
+    "asc-metadata-sync": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-metadata-sync/SKILL.md",
+      "computedHash": "778011f9051dcd67efdabfdc077cbf702c05fb5cb03b847e7d114cdbc02a7563"
+    },
+    "asc-notarization": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-notarization/SKILL.md",
+      "computedHash": "1cea3444ad3072751c8329fa5dee161c3b52473da6a13ea6f880fc7880fcca3a"
+    },
+    "asc-ppp-pricing": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-ppp-pricing/SKILL.md",
+      "computedHash": "6d7cf4452dece30ccf8b5a2bcc4823c8537a30248105783ecdb2e2811353e644"
+    },
+    "asc-release-flow": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-release-flow/SKILL.md",
+      "computedHash": "95ca94d431a9930f26c4efe157c449312eaf77f5b214661a2000629609974e14"
+    },
+    "asc-revenuecat-catalog-sync": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-revenuecat-catalog-sync/SKILL.md",
+      "computedHash": "9abbcd18373385973691f3b2622ec2d2d9640192b841f5d92de108ec6ab87d2c"
+    },
+    "asc-screenshot-resize": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-screenshot-resize/SKILL.md",
+      "computedHash": "0e1fb4bdf0d10b639a60dc529cfb93a47c9c1baa1bb8592026f4890b49e30b8c"
+    },
+    "asc-shots-pipeline": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-shots-pipeline/SKILL.md",
+      "computedHash": "451bcde217071831fa17d7e7ea0076bd87b0ac376d4cf94140be371adda4c02f"
+    },
+    "asc-signing-setup": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-signing-setup/SKILL.md",
+      "computedHash": "4a5beb44ae3089a892f9a8845e217e28c6ba9e1de5eaf79c46f105b58bc04fb2"
+    },
+    "asc-submission-health": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-submission-health/SKILL.md",
+      "computedHash": "90f26d8139b52e077d29219ef9b2006aedd742b3254320991d478b8c37dc3594"
+    },
+    "asc-subscription-localization": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-subscription-localization/SKILL.md",
+      "computedHash": "20f5f77fdaaf404ec1477e5c3b82fc3713be0404657bf80e05df64c2230d71b4"
+    },
+    "asc-testflight-orchestration": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-testflight-orchestration/SKILL.md",
+      "computedHash": "abd083bf7dba69dbc6d9a0d1b7a1491854d6140ffc5e7f89e2c1a4a70bba8629"
+    },
+    "asc-wall-submit": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-wall-submit/SKILL.md",
+      "computedHash": "e994819ce63d2fded64408026b0e0793383614f8306319f1b74f87fc9c8d8b99"
+    },
+    "asc-whats-new-writer": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-whats-new-writer/SKILL.md",
+      "computedHash": "de84772f057ca10600b3dee2aadd1cf8d5ef80aeaf293b13cda3ee08814699c1"
+    },
+    "asc-workflow": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-workflow/SKILL.md",
+      "computedHash": "2c0ee1290e7d780bb1baca93712a04d7d260296908e8554b298d1a3b86b137b6"
+    },
+    "asc-xcode-build": {
+      "source": "rorkai/app-store-connect-cli-skills",
+      "sourceType": "github",
+      "skillPath": "skills/asc-xcode-build/SKILL.md",
+      "computedHash": "1a944dbc0b96febbe26319e07fbd0f9e3f6b3517165c4c91e850b3ebf2a9413b"
+    },
     "ios-application-dev": {
       "source": "minimax-ai/skills",
       "sourceType": "github",
