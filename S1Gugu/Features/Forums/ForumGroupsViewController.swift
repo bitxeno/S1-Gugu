@@ -241,9 +241,10 @@ extension ForumGroupsViewController: UITableViewDelegate {
         })
     }
 
-    /// 编辑模式下隐藏删除圆钮(删除走左滑),仅保留拖动手柄
+    /// 编辑模式只用于拖动排序:所有行都不出现插入/删除圆钮(删除走左滑),
+    /// 可拖动的行由 canMoveRowAt 限制在收藏区块
     func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
-        dataSource.sectionIdentifier(for: indexPath.section) == Section.favorites ? .none : .delete
+        .none
     }
 
     func tableView(_ tableView: UITableView, shouldIndentWhileEditingRowAt indexPath: IndexPath) -> Bool {
