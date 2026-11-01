@@ -94,9 +94,18 @@ struct Thread: Sendable, Identifiable, Hashable {
     var isHiddenByBlacklist: Bool = false
     var blacklistRemark: String?
 
+    /// 上次浏览该帖时的回复总数(组装层从 dbthread 表填充,非 API 字段)
+    var lastReplyCount: Int = 0
+
     var id: Int { Int(tid) ?? 0 }
     var title: String { subject ?? "(无标题)" }
     var replyCount: Int { Int(replies) ?? 0 }
+
+    /// 自上次浏览以来的新回复数:浏览过且回复有增长才返回,供版块列表「+N」标记
+    var newReplyCount: Int? {
+        guard replyCount > 0, lastReplyCount > 0, replyCount > lastReplyCount else { return nil }
+        return replyCount - lastReplyCount
+    }
     var isSticky: Bool { displayorder > 0 }
     var hasAttachment: Bool { attachment > 0 }
     var isVote: Bool { special == 1 }

@@ -84,3 +84,38 @@ enum ReadProgressService {
         }
     }
 }
+
+/// 上次浏览帖子时的回复总数(对齐 S1-Next DbThread.lastCountWhenView):
+/// 版块列表用「当前回复数 − 上次浏览回复数」渲染「+N」新回复标记。
+enum DbThreadService {
+
+    static func lastCountWhenView(for threadId: Int) async -> Int {
+        (try? await AppDatabase.shared.read { database in
+            try DbThreadEntry.find(threadId).fetchOne(database)?.lastCountWhenView ?? 0
+        }) ?? 0
+    }
+
+    /// 一次读取整批 tid 的记录,供列表页拼装模型
+    static func entries(threadIds: [Int]) async -> [Int: DbThreadEntry] {
+        guard !threadIds.isEmpty else { return [:] }
+        return (try? await AppDatabase.shared.read { database in
+            let entries = try DbThreadEntry
+                .where { $0.threadId.in(threadIds) }
+                .fetchAll(database)
+            return Dictionary(uniqueKeysWithValues: entries.map { ($0.threadId, $0) })
+        }) ?? [:]
+    }
+
+    static func save(threadId: Int, replyCount: Int) async {
+        guard threadId > 0, replyCount > 0 else { return }
+        _ = try? await AppDatabase.shared.write { database in
+            try DbThreadEntry.upsert {
+                DbThreadEntry(
+                    threadId: threadId,
+                    lastCountWhenView: replyCount,
+                    timestamp: Int(Date().timeIntervalSince1970)
+                )
+            }.execute(database)
+        }
+    }
+}

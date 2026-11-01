@@ -401,6 +401,10 @@ final class PostListViewController: UIViewController {
                     self.didRecordHistory = true
                     await HistoryService.add(threadId: self.threadId, title: result.thread?.subject ?? self.threadTitle)
                 }
+                // 记录本次浏览时的回复总数,供版块列表计算「+N 新回复」
+                if let replies = result.thread?.replies, let count = Int(replies), count > 0 {
+                    await DbThreadService.save(threadId: self.threadId, replyCount: count)
+                }
                 // 阅读进度恢复:定位到锚点楼层
                 if let anchorPid, let index = self.posts.firstIndex(where: { $0.pid == anchorPid }), replace {
                     DispatchQueue.main.async { [weak self] in

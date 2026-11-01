@@ -111,6 +111,15 @@ final class AppDatabase: Sendable {
                 ) STRICT
                 """).execute(database)
         }
+        migrator.registerMigration("v5-dbthread") { database in
+            try #sql("""
+                CREATE TABLE "dbthread" (
+                  "threadId" INTEGER PRIMARY KEY,
+                  "lastCountWhenView" INTEGER NOT NULL DEFAULT 0,
+                  "timestamp" INTEGER NOT NULL DEFAULT 0
+                ) STRICT
+                """).execute(database)
+        }
         try migrator.migrate(writer)
         return AppDatabase(writer: writer)
     }

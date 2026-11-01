@@ -7,6 +7,7 @@ final class ThreadCell: UICollectionViewCell {
 
     private let replyCountChip = UIView()
     private let replyCountLabel = UILabel()
+    private let newReplyLabel = UILabel()
     private let titleLabel = UILabel()
     private let metaLabel = UILabel()
 
@@ -33,6 +34,14 @@ final class ThreadCell: UICollectionViewCell {
             make.top.bottom.equalToSuperview().inset(3)
         }
 
+        // 徽标下方的「+N」新回复数(accent 色小字,无新回复时隐藏)
+        newReplyLabel.font = .preferredFont(forTextStyle: .caption2)
+        newReplyLabel.textColor = Theme.accent
+        newReplyLabel.adjustsFontForContentSizeCategory = true
+        newReplyLabel.textAlignment = .center
+        newReplyLabel.isHidden = true
+        contentView.addSubview(newReplyLabel)
+
         titleLabel.font = .preferredFont(forTextStyle: .headline)
         titleLabel.numberOfLines = 2
         titleLabel.adjustsFontForContentSizeCategory = true
@@ -48,6 +57,12 @@ final class ThreadCell: UICollectionViewCell {
             make.leading.equalTo(contentView.layoutMarginsGuide.snp.leading)
             make.top.equalToSuperview().inset(12)
             make.width.equalTo(40)
+        }
+        newReplyLabel.snp.makeConstraints { make in
+            make.centerX.equalTo(replyCountChip)
+            make.top.equalTo(replyCountChip.snp.bottom).offset(1)
+            make.leading.greaterThanOrEqualToSuperview().inset(2)
+            make.trailing.lessThanOrEqualToSuperview().inset(2)
         }
         titleLabel.snp.makeConstraints { make in
             make.leading.equalTo(replyCountChip.snp.trailing).offset(10)
@@ -68,6 +83,13 @@ final class ThreadCell: UICollectionViewCell {
 
     func configure(_ thread: Thread, isRead: Bool) {
         replyCountLabel.text = Self.replyCountText(thread.replyCount)
+        if let newCount = thread.newReplyCount {
+            newReplyLabel.text = "+\(newCount)"
+            newReplyLabel.isHidden = false
+        } else {
+            newReplyLabel.text = nil
+            newReplyLabel.isHidden = true
+        }
 
         if thread.isHiddenByBlacklist {
             titleLabel.attributedText = nil
@@ -244,6 +266,7 @@ final class ThreadListViewController: UIViewController {
     private var footerError: String?
     private var loadTask: Task<Void, Never>?
     private var readThreadIds: Set<Int> = []
+    private var lastReplyCounts: [Int: Int] = [:]
     private var threadTypes: [String: String] = [:]
     private var subForums: [Forum] = []
     private var selectedTypeId: String?
@@ -266,23 +289,35 @@ final class ThreadListViewController: UIViewController {
         setupPlaceholder()
         Task { [weak self] in
             await BlacklistService.shared.reloadIfNeeded()
-            let history = await HistoryService.entries()
-            self?.readThreadIds = Set(history.map(\.threadId))
+            await self?.reloadReadState()
             self?.reloadFirstPage()
         }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // 从帖子返回时刷新已读状态(打开帖子即写入历史)
+        // 从帖子返回时刷新已读状态与上次浏览回复数(打开帖子即写入历史与 dbthread)
         Task { [weak self] in
-            let history = await HistoryService.entries()
-            guard let self else { return }
-            let ids = Set(history.map(\.threadId))
-            if ids != self.readThreadIds {
-                self.readThreadIds = ids
-                self.reconfigureReadState()
-            }
+            await self?.reloadReadState()
+        }
+    }
+
+    private func reloadReadState() async {
+        let history = await HistoryService.entries()
+        let ids = Set(history.map(\.threadId))
+        let counts = await DbThreadService.entries(threadIds: ids.sorted())
+        var changed = false
+        if ids != readThreadIds {
+            readThreadIds = ids
+            changed = true
+        }
+        let newCounts = counts.mapValues(\.lastCountWhenView)
+        if newCounts != lastReplyCounts {
+            lastReplyCounts = newCounts
+            changed = true
+        }
+        if changed {
+            reconfigureReadState()
         }
     }
 
@@ -317,7 +352,10 @@ final class ThreadListViewController: UIViewController {
         collectionView.refreshControl = refresh
 
         let threadRegistration = UICollectionView.CellRegistration<ThreadCell, Thread> { [weak self] cell, _, thread in
-            let isRead = self?.readThreadIds.contains(thread.id) ?? false
+            guard let self else { return }
+            var thread = thread
+            thread.lastReplyCount = self.lastReplyCounts[thread.id] ?? 0
+            let isRead = self.readThreadIds.contains(thread.id)
             cell.configure(thread, isRead: isRead)
         }
         let footerRegistration = UICollectionView.CellRegistration<FooterCell, ListItem> { [weak self] cell, _, item in
