@@ -65,10 +65,19 @@ final class PostHeaderCell: UICollectionViewCell {
         nameRow.axis = .horizontal
         nameRow.spacing = 6
         nameRow.alignment = .center
+        // 徽标是普通 UIView 无固有尺寸,行内余量会被它吸收;名字行只在
+        // 日期行宽度内排布,内部视图一律 required 拥抱,方框才只包住文字
+        authorLabel.setContentHuggingPriority(.required, for: .horizontal)
+        authorLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        opBadge.setContentCompressionResistancePriority(.required, for: .horizontal)
+        opBadgeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        opBadgeLabel.setContentHuggingPriority(.required, for: .horizontal)
 
         let textStack = UIStackView(arrangedSubviews: [nameRow, metaLabel])
         textStack.axis = .vertical
         textStack.spacing = 3
+        // .fill 会把名字行拉宽到日期行宽度,徽标随之被拉伸成大方框
+        textStack.alignment = .leading
 
         contentView.addSubview(avatarView)
         contentView.addSubview(textStack)
