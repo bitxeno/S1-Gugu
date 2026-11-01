@@ -80,6 +80,7 @@ struct Thread: Sendable, Identifiable, Hashable {
     let replies: String
     let author: String
     let authorId: Int
+    let lastPoster: String?
     let displayorder: Int
     let typeid: String?
     let dbdateline: String?
@@ -121,6 +122,7 @@ struct Thread: Sendable, Identifiable, Hashable {
         replies = "0"
         author = ""
         authorId = 0
+        lastPoster = nil
         displayorder = 0
         typeid = nil
         dbdateline = nil
@@ -137,6 +139,7 @@ struct Thread: Sendable, Identifiable, Hashable {
         replies = json["replies"].flexibleString
         author = json["author"].flexibleString
         authorId = json["authorid"].intValue
+        lastPoster = json["lastposter"].flexibleStringOrNil
         displayorder = json["displayorder"].intValue
         typeid = json["typeid"].flexibleStringOrNil
         dbdateline = json["dbdateline"].flexibleStringOrNil

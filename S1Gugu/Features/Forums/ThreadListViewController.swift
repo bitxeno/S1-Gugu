@@ -103,6 +103,10 @@ final class ThreadCell: UICollectionViewCell {
         if !thread.author.isEmpty { meta.append(thread.author) }
         let published = thread.publishedText
         if !published.isEmpty { meta.append(published) }
+        // 0 回复时服务端把 lastposter 填成楼主,与首个 meta 重复,仅在确有回复时展示
+        if thread.replyCount > 0, let lastPoster = thread.lastPoster, !lastPoster.isEmpty {
+            meta.append("最后回复 \(lastPoster)")
+        }
         metaLabel.text = meta.joined(separator: " · ")
         metaLabel.textColor = Theme.secondaryLabel
     }
