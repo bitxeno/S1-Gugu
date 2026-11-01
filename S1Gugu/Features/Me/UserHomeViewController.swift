@@ -25,7 +25,7 @@ final class UserHomeViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
 
         navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "eye.slash"), menu: blackListMenu())
 
@@ -101,7 +101,7 @@ final class UserHomeViewController: UIViewController {
 
         let groupLabel = UILabel()
         groupLabel.font = .preferredFont(forTextStyle: .footnote)
-        groupLabel.textColor = .secondaryLabel
+        groupLabel.textColor = Theme.secondaryLabel
         let regText = profile.regDate.flatMap { Thread.formatDate($0) } ?? "-"
         groupLabel.text = [profile.groupTitle, "注册:\(regText)"].compactMap { $0 }.joined(separator: " · ")
         groupLabel.adjustsFontForContentSizeCategory = true
@@ -118,7 +118,7 @@ final class UserHomeViewController: UIViewController {
         let statsLabel = UILabel()
         statsLabel.numberOfLines = 0
         statsLabel.font = .preferredFont(forTextStyle: .footnote)
-        statsLabel.textColor = .secondaryLabel
+        statsLabel.textColor = Theme.secondaryLabel
         let visitText = profile.lastVisitDate.flatMap { Thread.formatDate($0) } ?? "-"
         statsLabel.text = "好友 \(profile.friendsCount) · 主题 \(profile.threadsCount) · 回复 \(profile.repliesCount)\n最后访问:\(visitText)"
         statsLabel.adjustsFontForContentSizeCategory = true
@@ -142,7 +142,7 @@ final class UserHomeViewController: UIViewController {
                 let signLabel = UILabel()
                 signLabel.numberOfLines = 0
                 signLabel.font = .preferredFont(forTextStyle: .subheadline)
-                signLabel.textColor = .secondaryLabel
+                signLabel.textColor = Theme.secondaryLabel
                 signLabel.text = "签名:\(text)"
                 signLabel.adjustsFontForContentSizeCategory = true
                 wrapInCard(makeStack([signLabel]))
@@ -208,7 +208,7 @@ final class UserHomeViewController: UIViewController {
             let detailLabel = UILabel()
             detailLabel.text = detail
             detailLabel.font = .preferredFont(forTextStyle: .footnote)
-            detailLabel.textColor = .secondaryLabel
+            detailLabel.textColor = Theme.secondaryLabel
             detailLabel.numberOfLines = 0
             stack.addArrangedSubview(detailLabel)
         }
@@ -259,12 +259,12 @@ final class RateViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Theme.contentBackground
 
         let info = UILabel()
         info.text = "给 \(authorName) 的楼层评分"
         info.font = .preferredFont(forTextStyle: .subheadline)
-        info.textColor = .secondaryLabel
+        info.textColor = Theme.secondaryLabel
         info.adjustsFontForContentSizeCategory = true
 
         updateScoreLabel()

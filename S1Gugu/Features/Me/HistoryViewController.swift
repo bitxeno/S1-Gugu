@@ -14,10 +14,11 @@ final class HistoryViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "浏览历史"
 
         tableView = UITableView(frame: view.bounds, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "history")
@@ -55,13 +56,14 @@ final class HistoryViewController: UIViewController {
 
     private func configureCell(_ tableView: UITableView, at indexPath: IndexPath, entry: HistoryEntry) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "history", for: indexPath)
+        cell.applyFlatListBackground()
         var config = cell.defaultContentConfiguration()
         config.text = entry.title
         config.secondaryText = Thread.formatDate(String(entry.timestamp))
         config.textProperties.font = .preferredFont(forTextStyle: .subheadline)
         config.textProperties.numberOfLines = 2
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .caption1)
-        config.secondaryTextProperties.color = .tertiaryLabel
+        config.secondaryTextProperties.color = Theme.tertiaryLabel
         cell.contentConfiguration = config
         cell.accessoryType = .disclosureIndicator
         return cell

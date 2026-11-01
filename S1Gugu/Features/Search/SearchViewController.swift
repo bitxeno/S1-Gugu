@@ -29,7 +29,7 @@ final class SearchViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "搜索"
 
         searchBar.placeholder = "搜索主题或用户"
@@ -45,6 +45,7 @@ final class SearchViewController: UIViewController {
         }, for: .valueChanged)
 
         tableView = UITableView(frame: .zero, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.dataSource = self
         tableView.delegate = self
         tableView.separatorStyle = .none
@@ -219,6 +220,7 @@ extension SearchViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "search", for: indexPath)
+        cell.applyFlatListBackground()
         if mode == .forum {
             let result = forumResults[indexPath.row]
             let attributed = renderedBodies[result.id] ?? NSAttributedString(string: "渲染中…")
@@ -234,7 +236,7 @@ extension SearchViewController: UITableViewDataSource, UITableViewDelegate {
             var config = cell.defaultContentConfiguration()
             config.text = result.name ?? "UID \(result.uid)"
             config.secondaryText = "UID \(result.uid)"
-            config.secondaryTextProperties.color = .secondaryLabel
+            config.secondaryTextProperties.color = Theme.secondaryLabel
             config.image = UIImage(systemName: "person.crop.circle")
             config.imageProperties.tintColor = Theme.accent
             cell.contentConfiguration = config

@@ -127,7 +127,7 @@ enum BlockSplitter {
     private static func quoteStyle() -> HtmlAttributedBuilder.Style {
         HtmlAttributedBuilder.Style(
             font: HtmlAttributedBuilder.scaledFont(.subheadline),
-            color: .secondaryLabel,
+            color: Theme.secondaryLabel,
             link: nil
         )
     }
@@ -137,7 +137,7 @@ enum BlockSplitter {
             string: string,
             attributes: [
                 .font: HtmlAttributedBuilder.scaledFont(.subheadline),
-                .foregroundColor: UIColor.secondaryLabel,
+                .foregroundColor: Theme.secondaryLabel,
             ]
         )
     }

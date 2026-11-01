@@ -13,7 +13,7 @@ enum HtmlAttributedBuilder {
     }
 
     static func bodyStyle() -> Style {
-        Style(font: scaledFont(.body), color: .label, link: nil)
+        Style(font: scaledFont(.body), color: Theme.label, link: nil)
     }
 
     /// 用户字号缩放(M3 设置)作用于正文渲染

@@ -14,9 +14,10 @@ final class SettingsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "设置"
         tableView = UITableView(frame: view.bounds, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         tableView.dataSource = self
         tableView.delegate = self
@@ -56,6 +57,34 @@ final class SettingsViewController: UIViewController {
         }
     }
 
+    /// 浅色 / 深色主题选择(行点击与菜单按钮共用)
+    private func showThemePicker(isLight: Bool) {
+        let variants: [ThemeVariant] = isLight ? [.default, .custard] : [.default]
+        let current = isLight ? AppSettings.lightTheme : AppSettings.darkTheme
+        let alert = UIAlertController(
+            title: isLight ? "浅色主题" : "深色主题",
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+        for variant in variants {
+            alert.addAction(UIAlertAction(title: variant.displayName, style: .default) { _ in
+                guard variant != current else { return }
+                if isLight {
+                    AppSettings.lightTheme = variant
+                } else {
+                    AppSettings.darkTheme = variant
+                }
+                Theme.applyThemeChange()
+            })
+        }
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = self.view
+            popover.sourceRect = CGRect(x: self.view.bounds.midX, y: 150, width: 1, height: 1)
+        }
+        present(alert, animated: true)
+    }
+
     private func showCustomHostEditor() {
         let alert = UIAlertController(title: "备用域名", message: "例如 bbs.saraba1st.com/2b(可含 https:// 前缀)", preferredStyle: .alert)
         alert.addTextField { $0.text = AppSettings.customHost; $0.placeholder = "域名/2b" }
@@ -84,7 +113,7 @@ final class SettingsViewController: UIViewController {
         if let subtitle {
             config.secondaryText = subtitle
             config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-            config.secondaryTextProperties.color = .secondaryLabel
+            config.secondaryTextProperties.color = Theme.secondaryLabel
         }
         cell.contentConfiguration = config
         let toggle = UISwitch()
@@ -107,7 +136,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
         switch Section(rawValue: section) {
         case .image: return 2
         case .read: return 3
-        case .display: return 2
+        case .display: return 4
         case .network: return 3
         default: return 2
         }
@@ -125,6 +154,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "setting", for: indexPath)
+        cell.applyFlatListBackground()
         cell.accessoryView = nil
         switch Section(rawValue: indexPath.section) {
         case .image:
@@ -140,7 +170,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
             config.text = "清除图片缓存"
             config.textProperties.font = .preferredFont(forTextStyle: .body)
             config.secondaryText = cachedImageSizeText
-            config.secondaryTextProperties.color = .secondaryLabel
+            config.secondaryTextProperties.color = Theme.secondaryLabel
             config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
             cell.contentConfiguration = config
             cell.accessoryType = .none
@@ -161,12 +191,13 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 }
             }
         case .display:
-            if indexPath.row == 0 {
+            switch indexPath.row {
+            case 0:
                 var config = cell.defaultContentConfiguration()
                 config.text = "外观"
                 config.secondaryText = AppSettings.appearanceMode.displayName
                 config.textProperties.font = .preferredFont(forTextStyle: .body)
-                config.secondaryTextProperties.color = .secondaryLabel
+                config.secondaryTextProperties.color = Theme.secondaryLabel
                 cell.contentConfiguration = config
                 cell.accessoryType = .none
                 let menuButton = UIButton(type: .system)
@@ -182,30 +213,59 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 cell.accessoryView = menuButton
                 cell.accessoryType = .none
                 return cell
+            case 1, 2:
+                // 1 = 浅色主题(默认 / 奶黄,默认奶黄);2 = 深色主题(暂仅默认,预留扩展)
+                let isLight = indexPath.row == 1
+                let variants: [ThemeVariant] = isLight ? [.default, .custard] : [.default]
+                let current = isLight ? AppSettings.lightTheme : AppSettings.darkTheme
+                var config = cell.defaultContentConfiguration()
+                config.text = isLight ? "浅色主题" : "深色主题"
+                config.secondaryText = current.displayName
+                config.textProperties.font = .preferredFont(forTextStyle: .body)
+                config.secondaryTextProperties.color = Theme.secondaryLabel
+                cell.contentConfiguration = config
+                cell.accessoryType = .none
+                let menuButton = UIButton(type: .system)
+                menuButton.setImage(UIImage(systemName: "chevron.up.chevron.down"), for: .normal)
+                menuButton.showsMenuAsPrimaryAction = true
+                menuButton.menu = UIMenu(children: variants.map { variant in
+                    UIAction(title: variant.displayName, state: variant == current ? .on : .off) { _ in
+                        if isLight {
+                            AppSettings.lightTheme = variant
+                        } else {
+                            AppSettings.darkTheme = variant
+                        }
+                        Theme.applyThemeChange()
+                    }
+                })
+                cell.accessoryView = menuButton
+                cell.accessoryType = .none
+                return cell
+            default:
+                var config = cell.defaultContentConfiguration()
+                config.text = "帖子字号"
+                config.textProperties.font = .preferredFont(forTextStyle: .body)
+                let scale = AppSettings.fontScale
+                config.secondaryText = scale == 1.0 ? "默认" : "\(Int(scale * 100))%"
+                config.secondaryTextProperties.color = Theme.secondaryLabel
+                cell.contentConfiguration = config
+                cell.accessoryType = .none
+                let menuButton = UIButton(type: .system)
+                menuButton.setImage(UIImage(systemName: "chevron.up.chevron.down"), for: .normal)
+                menuButton.showsMenuAsPrimaryAction = true
+                menuButton.menu = UIMenu(children: [
+                    0.85, 1.0, 1.15, 1.3
+                ].map { scale in
+                    UIAction(title: scale == 1.0 ? "默认" : "\(Int(scale * 100))%", state: scale == AppSettings.fontScale ? .on : .off) { _ in
+                        AppSettings.fontScale = scale
+                        self.tableView.reloadData()
+                        Toast.show("重新打开帖子后生效", in: self.view ?? UIView())
+                    }
+                })
+                cell.accessoryView = menuButton
+                cell.accessoryType = .none
+                return cell
             }
-            var config = cell.defaultContentConfiguration()
-            config.text = "帖子字号"
-            config.textProperties.font = .preferredFont(forTextStyle: .body)
-            let scale = AppSettings.fontScale
-            config.secondaryText = scale == 1.0 ? "默认" : "\(Int(scale * 100))%"
-            config.secondaryTextProperties.color = .secondaryLabel
-            cell.contentConfiguration = config
-            cell.accessoryType = .none
-            let menuButton = UIButton(type: .system)
-            menuButton.setImage(UIImage(systemName: "chevron.up.chevron.down"), for: .normal)
-            menuButton.showsMenuAsPrimaryAction = true
-            menuButton.menu = UIMenu(children: [
-                0.85, 1.0, 1.15, 1.3
-            ].map { scale in
-                UIAction(title: scale == 1.0 ? "默认" : "\(Int(scale * 100))%", state: scale == AppSettings.fontScale ? .on : .off) { _ in
-                    AppSettings.fontScale = scale
-                    self.tableView.reloadData()
-                    Toast.show("重新打开帖子后生效", in: self.view ?? UIView())
-                }
-            })
-            cell.accessoryView = menuButton
-            cell.accessoryType = .none
-            return cell
         case .network:
             if indexPath.row == 0 {
                 return toggleCell(
@@ -223,7 +283,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 let host = AppSettings.customHost
                 config.secondaryText = host.isEmpty ? "未设置(默认 stage1st.com)" : host
                 config.textProperties.font = .preferredFont(forTextStyle: .body)
-                config.secondaryTextProperties.color = .secondaryLabel
+                config.secondaryTextProperties.color = Theme.secondaryLabel
                 config.secondaryTextProperties.numberOfLines = 2
                 cell.contentConfiguration = config
                 cell.accessoryType = .disclosureIndicator
@@ -234,7 +294,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
             config.secondaryText = "版块/主题/帖子的秒开缓存"
             config.textProperties.font = .preferredFont(forTextStyle: .body)
             config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-            config.secondaryTextProperties.color = .secondaryLabel
+            config.secondaryTextProperties.color = Theme.secondaryLabel
             cell.contentConfiguration = config
             cell.accessoryType = .none
             return cell
@@ -245,7 +305,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 config.text = "版本"
                 config.secondaryText = "\(version)(M3)"
                 config.textProperties.font = .preferredFont(forTextStyle: .body)
-                config.secondaryTextProperties.color = .secondaryLabel
+                config.secondaryTextProperties.color = Theme.secondaryLabel
                 cell.contentConfiguration = config
                 cell.accessoryType = .none
                 return cell
@@ -261,8 +321,13 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        if Section(rawValue: indexPath.section) == .display, indexPath.row == 0 {
-            showAppearancePicker()
+        if Section(rawValue: indexPath.section) == .display {
+            switch indexPath.row {
+            case 0: showAppearancePicker()
+            case 1: showThemePicker(isLight: true)
+            case 2: showThemePicker(isLight: false)
+            default: break
+            }
             return
         }
         if Section(rawValue: indexPath.section) == .network {
@@ -299,7 +364,7 @@ final class AboutViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Theme.contentBackground
         navigationItem.title = "关于"
 
         let licenses = """

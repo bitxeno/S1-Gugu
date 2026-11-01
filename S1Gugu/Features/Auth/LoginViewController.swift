@@ -30,7 +30,7 @@ final class LoginViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Theme.contentBackground
         navigationItem.title = "登录"
 
         // 预填上次凭据
@@ -97,7 +97,7 @@ final class LoginViewController: UIViewController {
         let note = UILabel()
         note.text = "登录后将维持论坛 Cookie 会话;密码仅保存在本机钥匙串。"
         note.font = .preferredFont(forTextStyle: .footnote)
-        note.textColor = .secondaryLabel
+        note.textColor = Theme.secondaryLabel
         note.numberOfLines = 0
         note.adjustsFontForContentSizeCategory = true
 

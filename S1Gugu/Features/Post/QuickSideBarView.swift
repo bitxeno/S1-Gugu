@@ -63,7 +63,7 @@ final class QuickSideBarView: UIView {
         }
         currentIndex = index
         if let index, letterLabels.indices.contains(index) {
-            letterLabels[index].textColor = .label
+            letterLabels[index].textColor = Theme.label
             letterLabels[index].font = .systemFont(ofSize: 12, weight: .bold)
         }
     }

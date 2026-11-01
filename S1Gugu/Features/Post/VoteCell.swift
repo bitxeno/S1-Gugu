@@ -18,7 +18,7 @@ final class VoteCell: UICollectionViewCell {
         super.init(frame: frame)
 
         titleLabel.font = .preferredFont(forTextStyle: .subheadline).bold()
-        titleLabel.textColor = .label
+        titleLabel.textColor = Theme.label
         titleLabel.adjustsFontForContentSizeCategory = true
 
         optionStack.axis = .vertical
@@ -86,11 +86,11 @@ final class VoteCell: UICollectionViewCell {
             let selected = selectedIds.contains(option.id)
             let mark = selected ? "☑︎ " : "○  "
             config.attributedTitle = AttributedString("\(mark)\(option.option)")
-            config.baseForegroundColor = selected ? Theme.accent : .label
+            config.baseForegroundColor = selected ? Theme.accent : Theme.label
         } else {
             let percent = option.percent ?? ""
             config.attributedTitle = AttributedString("\(option.option)  \(percent) (\(option.votes))")
-            config.baseForegroundColor = .secondaryLabel
+            config.baseForegroundColor = Theme.secondaryLabel
         }
         config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10)
         config.background.cornerRadius = 8

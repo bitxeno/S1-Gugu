@@ -21,9 +21,10 @@ final class MeViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "我的"
         tableView = UITableView(frame: view.bounds, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         tableView.dataSource = self
         tableView.delegate = self
@@ -69,7 +70,7 @@ final class MeViewController: UIViewController {
                 config.image = UIImage(systemName: "person.crop.circle")
             }
             config.imageProperties.tintColor = Theme.accent
-            config.secondaryTextProperties.color = .secondaryLabel
+            config.secondaryTextProperties.color = Theme.secondaryLabel
             cell.accessoryType = state.isLoggedIn ? .none : .disclosureIndicator
         case .history:
             config.text = "浏览历史"
@@ -202,6 +203,7 @@ extension MeViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "row", for: indexPath)
+        cell.applyFlatListBackground()
         let row: Row
         switch indexPath.section {
         case 0: row = .account

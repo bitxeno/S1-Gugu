@@ -14,10 +14,11 @@ final class BlacklistViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "黑名单"
 
         tableView = UITableView(frame: view.bounds, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         tableView.dataSource = self
         tableView.delegate = self
@@ -145,13 +146,14 @@ extension BlacklistViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "blacklist", for: indexPath)
+        cell.applyFlatListBackground()
         let entry = entries[indexPath.row]
         var config = cell.defaultContentConfiguration()
         config.text = displayName(entry)
         config.secondaryText = detailText(entry)
         config.textProperties.font = .preferredFont(forTextStyle: .body)
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        config.secondaryTextProperties.color = .secondaryLabel
+        config.secondaryTextProperties.color = Theme.secondaryLabel
         config.image = UIImage(systemName: "person.crop.circle.badge.xmark")
         config.imageProperties.tintColor = .systemRed
         cell.contentConfiguration = config
@@ -186,11 +188,12 @@ final class BlackWordViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "屏蔽词"
 
         tableView = UITableView(frame: view.bounds, style: .insetGrouped)
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        tableView.backgroundColor = Theme.background
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "blackword")
@@ -270,13 +273,14 @@ extension BlackWordViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "blackword", for: indexPath)
+        cell.applyFlatListBackground()
         let entry = entries[indexPath.row]
         var config = cell.defaultContentConfiguration()
         config.text = entry.word
         config.secondaryText = entry.level == 2 ? "命中时删除" : "命中时隐藏(占位)"
         config.textProperties.font = .preferredFont(forTextStyle: .body)
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        config.secondaryTextProperties.color = .secondaryLabel
+        config.secondaryTextProperties.color = Theme.secondaryLabel
         cell.contentConfiguration = config
         return cell
     }

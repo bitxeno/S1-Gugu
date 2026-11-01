@@ -11,7 +11,7 @@ final class WebLoginViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Theme.contentBackground
         navigationItem.title = "网页登录"
 
         let configuration = WKWebViewConfiguration()

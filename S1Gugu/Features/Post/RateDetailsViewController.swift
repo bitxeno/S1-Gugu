@@ -27,9 +27,10 @@ final class RateDetailsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
 
         tableView = UITableView(frame: .zero, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.dataSource = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "rate")
         view.addSubview(tableView)
@@ -88,13 +89,14 @@ extension RateDetailsViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "rate", for: indexPath)
+        cell.applyFlatListBackground()
         let rate = rates[indexPath.row]
         var config = cell.defaultContentConfiguration()
         config.text = "\(rate.uname ?? "UID \(rate.uid ?? "-")")  \(rate.symbolScore)"
         config.textProperties.font = .preferredFont(forTextStyle: .subheadline)
         config.secondaryText = [rate.content, rate.time].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        config.secondaryTextProperties.color = .secondaryLabel
+        config.secondaryTextProperties.color = Theme.secondaryLabel
         config.secondaryTextProperties.numberOfLines = 2
         config.image = UIImage(systemName: "star")
         config.imageProperties.tintColor = rate.score < 0 ? .systemRed : .systemOrange

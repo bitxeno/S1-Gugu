@@ -17,12 +17,12 @@ final class ThreadCell: UICollectionViewCell {
         super.init(frame: frame)
 
         titleLabel.font = .preferredFont(forTextStyle: .headline)
-        titleLabel.textColor = .label
+        titleLabel.textColor = Theme.label
         titleLabel.numberOfLines = 2
         titleLabel.adjustsFontForContentSizeCategory = true
 
         metaLabel.font = .preferredFont(forTextStyle: .footnote)
-        metaLabel.textColor = .secondaryLabel
+        metaLabel.textColor = Theme.secondaryLabel
         metaLabel.adjustsFontForContentSizeCategory = true
 
         badgeLabel.font = .preferredFont(forTextStyle: .caption1)
@@ -30,12 +30,12 @@ final class ThreadCell: UICollectionViewCell {
         badgeLabel.adjustsFontForContentSizeCategory = true
 
         replyCountLabel.font = .preferredFont(forTextStyle: .subheadline)
-        replyCountLabel.textColor = .secondaryLabel
+        replyCountLabel.textColor = Theme.secondaryLabel
         replyCountLabel.adjustsFontForContentSizeCategory = true
         replyCountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         lastPostLabel.font = .preferredFont(forTextStyle: .caption1)
-        lastPostLabel.textColor = .tertiaryLabel
+        lastPostLabel.textColor = Theme.tertiaryLabel
         lastPostLabel.adjustsFontForContentSizeCategory = true
         lastPostLabel.textAlignment = .right
         lastPostLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -72,17 +72,17 @@ final class ThreadCell: UICollectionViewCell {
     func configure(_ thread: Thread, isRead: Bool) {
         if thread.isHiddenByBlacklist {
             titleLabel.text = "已屏蔽主题"
-            titleLabel.textColor = .tertiaryLabel
+            titleLabel.textColor = Theme.tertiaryLabel
             badgeLabel.text = thread.blacklistRemark.map { "(\($0))" }
             metaLabel.text = thread.author
-            metaLabel.textColor = .tertiaryLabel
+            metaLabel.textColor = Theme.tertiaryLabel
             replyCountLabel.text = ""
             lastPostLabel.text = ""
             return
         }
 
         titleLabel.text = thread.title
-        titleLabel.textColor = isRead ? .secondaryLabel : .label
+        titleLabel.textColor = isRead ? Theme.secondaryLabel : Theme.label
         badgeLabel.text = badgeText(for: thread)
 
         var meta: [String] = []
@@ -90,7 +90,7 @@ final class ThreadCell: UICollectionViewCell {
         let published = thread.publishedText
         if !published.isEmpty { meta.append(published) }
         metaLabel.text = meta.joined(separator: " · ")
-        metaLabel.textColor = .secondaryLabel
+        metaLabel.textColor = Theme.secondaryLabel
 
         replyCountLabel.text = thread.replyCount > 0
             ? "\(thread.replyCount) 回复"
@@ -117,7 +117,7 @@ final class FooterCell: UICollectionViewCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
         textLabel.font = .preferredFont(forTextStyle: .footnote)
-        textLabel.textColor = .tertiaryLabel
+        textLabel.textColor = Theme.tertiaryLabel
         textLabel.adjustsFontForContentSizeCategory = true
 
         retryButton.configuration = {
@@ -151,10 +151,10 @@ final class FooterCell: UICollectionViewCell {
         retryButton.isHidden = (error == nil)
         if let error {
             textLabel.text = error
-            textLabel.textColor = .secondaryLabel
+            textLabel.textColor = Theme.secondaryLabel
         } else {
             textLabel.text = canLoadMore ? "" : "没有更多了"
-            textLabel.textColor = .tertiaryLabel
+            textLabel.textColor = Theme.tertiaryLabel
         }
     }
 }
@@ -198,7 +198,7 @@ final class ThreadListViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = forum.name ?? "主题列表"
         setupCollectionView()
         navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "ellipsis.circle"), menu: makeMenu())
@@ -241,12 +241,14 @@ final class ThreadListViewController: UIViewController {
     private func setupCollectionView() {
         var listConfig = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         listConfig.showsSeparators = true
+        // list section 默认自绘系统背景,必须显式指定,否则盖住页面米白
+        listConfig.backgroundColor = Theme.background
         let layout = UICollectionViewCompositionalLayout { sectionIndex, environment in
             NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
         }
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        collectionView.backgroundColor = .systemGroupedBackground
+        collectionView.backgroundColor = Theme.background
         collectionView.delegate = self
 
         let refresh = UIRefreshControl()

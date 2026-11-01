@@ -20,7 +20,7 @@ final class ForumGroupsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "论坛"
         navigationItem.rightBarButtonItem = UIBarButtonItem(primaryAction: UIAction(
             title: "搜索",
@@ -36,7 +36,7 @@ final class ForumGroupsViewController: UIViewController {
     private func setupTableView() {
         tableView = UITableView(frame: view.bounds, style: .insetGrouped)
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        tableView.backgroundColor = .systemGroupedBackground
+        tableView.backgroundColor = Theme.background
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "forum")
         tableView.delegate = self
 
@@ -65,13 +65,14 @@ final class ForumGroupsViewController: UIViewController {
 
     private func configureCell(_ tableView: UITableView, at indexPath: IndexPath, forum: Forum) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "forum", for: indexPath)
+        cell.applyFlatListBackground()
         var config = cell.defaultContentConfiguration()
         config.text = forum.displayName
         config.textProperties.font = .preferredFont(forTextStyle: .body)
-        config.textProperties.color = .label
+        config.textProperties.color = Theme.label
         config.secondaryText = "主题 \(forum.threads) · 今日 \(forum.todayposts)"
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        config.secondaryTextProperties.color = .secondaryLabel
+        config.secondaryTextProperties.color = Theme.secondaryLabel
         config.image = UIImage(systemName: "number")
         config.imageProperties.tintColor = Theme.accent
         config.imageProperties.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .body)

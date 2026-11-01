@@ -209,7 +209,7 @@ final class ZoomImageViewController: UIViewController, UIScrollViewDelegate {
                 self.activity.stopAnimating()
                 guard let image = try? result.get().image else {
                     self.imageView.image = UIImage(systemName: "photo")
-                    self.imageView.tintColor = .secondaryLabel
+                    self.imageView.tintColor = Theme.secondaryLabel
                     return
                 }
                 self.imageView.image = image

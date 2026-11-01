@@ -1,6 +1,16 @@
 import UIKit
 
 extension UIColor {
+    /// 主题常量色:`UIColor(hex: 0xF6F7EB)`
+    convenience init(hex: Int, alpha: CGFloat = 1) {
+        self.init(
+            red: CGFloat((hex >> 16) & 0xFF) / 255.0,
+            green: CGFloat((hex >> 8) & 0xFF) / 255.0,
+            blue: CGFloat(hex & 0xFF) / 255.0,
+            alpha: alpha
+        )
+    }
+
     /// 解析 Discuz 帖子里的 `#RRGGBB` / `#RGB` 颜色;失败返回 nil(调用方回退语义色)。
     convenience init?(discuzHex: String) {
         var hex = discuzHex.trimmingCharacters(in: .whitespacesAndNewlines)

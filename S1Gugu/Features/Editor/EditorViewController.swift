@@ -33,7 +33,7 @@ class EditorViewController: UIViewController, UITextViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Theme.contentBackground
         buildUI()
         loadDraft()
         Task {
@@ -69,7 +69,7 @@ class EditorViewController: UIViewController, UITextViewDelegate {
         photoButton.addAction(UIAction { [weak self] _ in self?.showPhotoPicker() }, for: .touchUpInside)
 
         statusLabel.font = .preferredFont(forTextStyle: .caption1)
-        statusLabel.textColor = .tertiaryLabel
+        statusLabel.textColor = Theme.tertiaryLabel
         statusLabel.textAlignment = .right
 
         bottomBar.axis = .horizontal

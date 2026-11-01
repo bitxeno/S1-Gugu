@@ -50,7 +50,7 @@ final class ReplyViewController: EditorViewController {
             let hint = UILabel()
             hint.text = "引用 \(quote.author):\(quote.summary)"
             hint.font = .preferredFont(forTextStyle: .footnote)
-            hint.textColor = .secondaryLabel
+            hint.textColor = Theme.secondaryLabel
             hint.numberOfLines = 2
             view.addSubview(hint)
             hint.snp.makeConstraints { make in

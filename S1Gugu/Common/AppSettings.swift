@@ -24,6 +24,19 @@ enum AppearanceMode: String {
     }
 }
 
+/// 列表主题配色。「默认」为 iOS 原生观感;「奶黄」复刻自 S1-Next 的午后红茶主题。
+enum ThemeVariant: String {
+    case `default`
+    case custard
+
+    var displayName: String {
+        switch self {
+        case .default: return "默认"
+        case .custard: return "奶黄"
+        }
+    }
+}
+
 /// UserDefaults 设置项(见 docs/04-数据模型.md §3)
 enum AppSettings {
 
@@ -84,6 +97,18 @@ enum AppSettings {
             AppearanceMode(rawValue: defaults.string(forKey: "appearanceMode") ?? "") ?? .system
         }
         set { defaults.set(newValue.rawValue, forKey: "appearanceMode") }
+    }
+
+    /// 浅色主题,默认「奶黄」
+    static var lightTheme: ThemeVariant {
+        get { ThemeVariant(rawValue: defaults.string(forKey: "lightTheme") ?? "") ?? .custard }
+        set { defaults.set(newValue.rawValue, forKey: "lightTheme") }
+    }
+
+    /// 深色主题,目前仅「默认」,后续扩展其它深色配色
+    static var darkTheme: ThemeVariant {
+        get { ThemeVariant(rawValue: defaults.string(forKey: "darkTheme") ?? "") ?? .default }
+        set { defaults.set(newValue.rawValue, forKey: "darkTheme") }
     }
 
     /// 楼层快速侧边条(帖子详情右侧字母条),默认关闭

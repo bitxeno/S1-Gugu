@@ -56,7 +56,7 @@ final class PostListViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Theme.contentBackground
         navigationItem.title = threadTitle
         setupCollectionView()
         setupPageNavigation()
@@ -162,7 +162,7 @@ final class PostListViewController: UIViewController {
         }
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        collectionView.backgroundColor = .systemBackground
+        collectionView.backgroundColor = Theme.contentBackground
         collectionView.delegate = self
 
         let headerRegistration = UICollectionView.CellRegistration<PostHeaderCell, PostHeaderModel> { [weak self] cell, _, model in
@@ -251,6 +251,8 @@ final class PostListViewController: UIViewController {
     private func makeSectionLayout(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
         var config = UICollectionLayoutListConfiguration(appearance: .plain)
         config.showsSeparators = false
+        // list section 默认自绘系统背景,必须显式指定,否则盖住页面米白
+        config.backgroundColor = Theme.contentBackground
         return NSCollectionLayoutSection.list(using: config, layoutEnvironment: environment)
     }
 

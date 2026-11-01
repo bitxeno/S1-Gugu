@@ -30,12 +30,12 @@ final class PostHeaderCell: UICollectionViewCell {
         avatarView.layer.cornerRadius = 20
         avatarView.layer.masksToBounds = true
         avatarView.image = UIImage(systemName: "person.crop.circle.fill")
-        avatarView.tintColor = .tertiaryLabel
+        avatarView.tintColor = Theme.tertiaryLabel
         avatarView.isUserInteractionEnabled = true
         avatarView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(avatarTapped)))
 
         authorLabel.font = .preferredFont(forTextStyle: .subheadline).bold()
-        authorLabel.textColor = .label
+        authorLabel.textColor = Theme.label
         authorLabel.adjustsFontForContentSizeCategory = true
 
         opBadge.text = "楼主"
@@ -48,7 +48,7 @@ final class PostHeaderCell: UICollectionViewCell {
         opBadge.adjustsFontForContentSizeCategory = true
 
         metaLabel.font = .preferredFont(forTextStyle: .caption1)
-        metaLabel.textColor = .tertiaryLabel
+        metaLabel.textColor = Theme.tertiaryLabel
         metaLabel.adjustsFontForContentSizeCategory = true
 
         let nameRow = UIStackView(arrangedSubviews: [authorLabel, opBadge])
@@ -295,7 +295,7 @@ final class QuoteBlockCell: UICollectionViewCell, UITextViewDelegate {
         barView.layer.cornerRadius = 1.5
 
         authorLabel.font = .preferredFont(forTextStyle: .caption1)
-        authorLabel.textColor = .tertiaryLabel
+        authorLabel.textColor = Theme.tertiaryLabel
         authorLabel.adjustsFontForContentSizeCategory = true
 
         textView.isScrollEnabled = false
@@ -405,7 +405,7 @@ final class CodeBlockCell: UICollectionViewCell {
             string: code,
             attributes: [
                 .font: textView.font ?? .systemFont(ofSize: 13),
-                .foregroundColor: UIColor.label,
+                .foregroundColor: Theme.label,
             ]
         )
     }
@@ -430,11 +430,11 @@ final class FileAttachmentCell: UICollectionViewCell {
         iconView.contentMode = .scaleAspectFit
 
         nameLabel.font = .preferredFont(forTextStyle: .subheadline)
-        nameLabel.textColor = .label
+        nameLabel.textColor = Theme.label
         nameLabel.adjustsFontForContentSizeCategory = true
 
         sizeLabel.font = .preferredFont(forTextStyle: .caption1)
-        sizeLabel.textColor = .tertiaryLabel
+        sizeLabel.textColor = Theme.tertiaryLabel
         sizeLabel.adjustsFontForContentSizeCategory = true
 
         let stack = UIStackView(arrangedSubviews: [iconView, nameLabel, sizeLabel])
@@ -490,7 +490,7 @@ final class HiddenPostCell: UICollectionViewCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
         label.font = .preferredFont(forTextStyle: .subheadline)
-        label.textColor = .tertiaryLabel
+        label.textColor = Theme.tertiaryLabel
         label.textAlignment = .center
         label.numberOfLines = 0
         label.adjustsFontForContentSizeCategory = true

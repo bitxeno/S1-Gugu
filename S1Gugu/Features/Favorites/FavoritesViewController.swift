@@ -16,7 +16,7 @@ final class FavoritesViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "收藏"
         setupCollectionView()
 
@@ -53,7 +53,7 @@ final class FavoritesViewController: UIViewController {
         }
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        collectionView.backgroundColor = .systemGroupedBackground
+        collectionView.backgroundColor = Theme.background
         collectionView.delegate = self
 
         let refresh = UIRefreshControl()
@@ -61,13 +61,14 @@ final class FavoritesViewController: UIViewController {
         collectionView.refreshControl = refresh
 
         let registration = UICollectionView.CellRegistration<UICollectionViewListCell, Favourite> { cell, _, favorite in
+            cell.applyFlatListBackground()
             var config = cell.defaultContentConfiguration()
             config.text = favorite.displayName
             config.secondaryText = favorite.description ?? Thread.formatDate(favorite.dateline)
             config.textProperties.font = .preferredFont(forTextStyle: .subheadline)
             config.textProperties.numberOfLines = 2
             config.secondaryTextProperties.font = .preferredFont(forTextStyle: .caption1)
-            config.secondaryTextProperties.color = .tertiaryLabel
+            config.secondaryTextProperties.color = Theme.tertiaryLabel
             config.text = favorite.displayName
             cell.contentConfiguration = config
         }

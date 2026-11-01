@@ -34,9 +34,10 @@ final class UserThreadsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
 
         tableView = UITableView(frame: .zero, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "homeitem")
@@ -123,9 +124,10 @@ extension UserThreadsViewController: UITableViewDataSource, UITableViewDelegate 
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "homeitem", for: indexPath)
+        cell.applyFlatListBackground()
         var config = cell.defaultContentConfiguration()
         config.textProperties.numberOfLines = 2
-        config.secondaryTextProperties.color = .secondaryLabel
+        config.secondaryTextProperties.color = Theme.secondaryLabel
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .caption1)
         switch mode {
         case .threads:

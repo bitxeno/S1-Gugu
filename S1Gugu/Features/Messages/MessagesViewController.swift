@@ -12,7 +12,7 @@ final class MessagesViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "消息"
 
         segmented.selectedSegmentIndex = 0
@@ -73,9 +73,10 @@ final class PMListViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
 
         tableView = UITableView(frame: view.bounds, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         tableView.dataSource = self
         tableView.delegate = self
@@ -186,16 +187,17 @@ extension PMListViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "pmgroup", for: indexPath)
+        cell.applyFlatListBackground()
         let group = groups[indexPath.row]
         var config = cell.defaultContentConfiguration()
         config.text = group.displayName
         config.secondaryText = group.lastSummary ?? ""
         config.textProperties.font = .preferredFont(forTextStyle: .body)
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        config.secondaryTextProperties.color = .secondaryLabel
+        config.secondaryTextProperties.color = Theme.secondaryLabel
         config.secondaryTextProperties.numberOfLines = 1
         config.image = UIImage(systemName: group.isNew ? "envelope.badge" : "envelope")
-        config.imageProperties.tintColor = group.isNew ? Theme.accent : .tertiaryLabel
+        config.imageProperties.tintColor = group.isNew ? Theme.accent : Theme.tertiaryLabel
         cell.contentConfiguration = config
         cell.accessoryType = .disclosureIndicator
         return cell
@@ -258,7 +260,7 @@ final class PMThreadViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Theme.contentBackground
 
         inputField.placeholder = "输入消息…"
         inputField.borderStyle = .roundedRect
@@ -276,6 +278,8 @@ final class PMThreadViewController: UIViewController {
         inputBar.isLayoutMarginsRelativeArrangement = true
 
         tableView = UITableView(frame: .zero, style: .plain)
+        // plain 表格缺省白底,与页面米白对齐
+        tableView.backgroundColor = Theme.contentBackground
         tableView.separatorStyle = .none
         tableView.dataSource = self
         tableView.delegate = self
@@ -352,6 +356,8 @@ extension PMThreadViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "pm", for: indexPath)
+        // 会话页底色是 contentBackground,气泡 cell 同色铺底
+        cell.applyFlatListBackground(color: Theme.contentBackground)
         let message = messages[indexPath.row]
         let isMine = message.authorId == String(SessionStore.shared.state.uid ?? -1)
         cell.contentConfiguration = PMBubbleContentConfiguration(message: message, isMine: isMine)
@@ -422,7 +428,7 @@ final class PMBubbleContentView: UIView, UIContentView {
         label.adjustsFontForContentSizeCategory = true
 
         metaLabel.font = .preferredFont(forTextStyle: .caption2)
-        metaLabel.textColor = .tertiaryLabel
+        metaLabel.textColor = Theme.tertiaryLabel
         metaLabel.adjustsFontForContentSizeCategory = true
 
         bubble.layer.cornerRadius = 14
@@ -468,7 +474,7 @@ final class PMBubbleContentView: UIView, UIContentView {
             }
         } else {
             bubble.backgroundColor = .secondarySystemBackground
-            label.textColor = .label
+            label.textColor = Theme.label
             bubble.snp.remakeConstraints { make in
                 make.leading.equalToSuperview().inset(16)
                 make.width.lessThanOrEqualToSuperview().multipliedBy(0.78)
@@ -497,8 +503,9 @@ final class NoticeViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         tableView = UITableView(frame: view.bounds, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         tableView.dataSource = self
         tableView.delegate = self
@@ -563,6 +570,7 @@ extension NoticeViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "note", for: indexPath)
+        cell.applyFlatListBackground()
         let note = notes[indexPath.row]
         var config = cell.defaultContentConfiguration()
         config.text = HTMLTextCleaner.plain(note.note)
@@ -570,7 +578,7 @@ extension NoticeViewController: UITableViewDataSource, UITableViewDelegate {
         config.textProperties.font = .preferredFont(forTextStyle: .subheadline)
         config.textProperties.numberOfLines = 3
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .caption1)
-        config.secondaryTextProperties.color = .tertiaryLabel
+        config.secondaryTextProperties.color = Theme.tertiaryLabel
         config.image = UIImage(systemName: "bell")
         config.imageProperties.tintColor = Theme.accent
         cell.contentConfiguration = config

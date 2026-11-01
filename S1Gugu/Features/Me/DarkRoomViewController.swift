@@ -14,10 +14,11 @@ final class DarkRoomViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "小黑屋"
 
         tableView = UITableView(frame: .zero, style: .insetGrouped)
+        tableView.backgroundColor = Theme.background
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "darkroom")
@@ -76,6 +77,7 @@ extension DarkRoomViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "darkroom", for: indexPath)
+        cell.applyFlatListBackground()
         let item = items[indexPath.row]
         var config = cell.defaultContentConfiguration()
         config.text = "\(item.username ?? "UID \(item.uid)") · \(item.action ?? "处罚")"
@@ -86,7 +88,7 @@ extension DarkRoomViewController: UITableViewDataSource, UITableViewDelegate {
         config.secondaryText = detail.joined(separator: "\n")
         config.textProperties.font = .preferredFont(forTextStyle: .subheadline)
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        config.secondaryTextProperties.color = .secondaryLabel
+        config.secondaryTextProperties.color = Theme.secondaryLabel
         config.secondaryTextProperties.numberOfLines = 0
         config.image = UIImage(systemName: "figure.fall")
         config.imageProperties.tintColor = .systemRed
@@ -114,11 +116,12 @@ final class PostBackupsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = Theme.background
         navigationItem.title = "帖子备份"
 
         tableView = UITableView(frame: .zero, style: .insetGrouped)
         tableView.dataSource = self
+        tableView.backgroundColor = Theme.background
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "backup")
         view.addSubview(tableView)
@@ -169,7 +172,7 @@ extension PostBackupsViewController: UITableViewDataSource, UITableViewDelegate 
         config.secondaryText = "\(entry.pageCount) 页 · 备份于 \(Thread.formatDate(String(entry.timestamp)))"
         config.textProperties.numberOfLines = 2
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .caption1)
-        config.secondaryTextProperties.color = .tertiaryLabel
+        config.secondaryTextProperties.color = Theme.tertiaryLabel
         config.image = UIImage(systemName: "arrow.down.doc")
         config.imageProperties.tintColor = Theme.accent
         cell.contentConfiguration = config

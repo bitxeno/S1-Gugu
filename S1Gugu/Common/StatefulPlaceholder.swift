@@ -35,18 +35,18 @@ final class StatefulPlaceholderView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = .systemBackground
+        backgroundColor = Theme.contentBackground
 
         iconView.contentMode = .scaleAspectFit
-        iconView.tintColor = .tertiaryLabel
+        iconView.tintColor = Theme.tertiaryLabel
 
         titleLabel.font = .preferredFont(forTextStyle: .headline)
-        titleLabel.textColor = .label
+        titleLabel.textColor = Theme.label
         titleLabel.textAlignment = .center
         titleLabel.adjustsFontForContentSizeCategory = true
 
         messageLabel.font = .preferredFont(forTextStyle: .subheadline)
-        messageLabel.textColor = .secondaryLabel
+        messageLabel.textColor = Theme.secondaryLabel
         messageLabel.textAlignment = .center
         messageLabel.numberOfLines = 0
         messageLabel.adjustsFontForContentSizeCategory = true
