@@ -220,9 +220,22 @@ final class ThreadListViewController: UIViewController {
             let ids = Set(history.map(\.threadId))
             if ids != self.readThreadIds {
                 self.readThreadIds = ids
-                self.collectionView?.reloadData()
+                self.reconfigureReadState()
             }
         }
+    }
+
+    /// 已读状态烘在 cell 配置里:对现有 item 走 reconfigure 重跑 cell provider,
+    /// 不能用 reloadData(与 diffable data source 混用会破坏其内部快照状态)
+    private func reconfigureReadState() {
+        guard let dataSource else { return }
+        var snapshot = dataSource.snapshot()
+        let threadItems = snapshot.itemIdentifiers.filter {
+            if case .thread = $0 { return true } else { return false }
+        }
+        guard !threadItems.isEmpty else { return }
+        snapshot.reconfigureItems(threadItems)
+        dataSource.apply(snapshot, animatingDifferences: false)
     }
 
     private func setupCollectionView() {
@@ -389,7 +402,9 @@ final class ThreadListViewController: UIViewController {
             do {
                 let result = try await DiscuzAPI.shared.threads(fid: forum.id, page: self.page + 1, typeId: self.selectedTypeId)
                 guard !Task.isCancelled else { return }
-                self.threads += self.filter(result.threads)
+                // 分页接口每页都会重复携带置顶帖,追加前按 tid 去重
+                let existingIds = Set(self.threads.map(\.id))
+                self.threads += self.filter(result.threads).filter { !existingIds.contains($0.id) }
                 self.page += 1
                 self.canLoadMore = !result.threads.isEmpty
                 self.isLoading = false
@@ -408,7 +423,10 @@ final class ThreadListViewController: UIViewController {
         let snapshot = BlacklistService.shared.snapshot
         var output: [Thread] = []
         output.reserveCapacity(input.count)
+        var seenIds = Set<Int>()
         for var thread in input {
+            // tid 是快照 item 标识:置顶帖跨页重复、tid 缺失解析为 0 时必须去重
+            guard seenIds.insert(thread.id).inserted else { continue }
             switch snapshot.forumLevel(uid: thread.authorId, name: thread.author) {
             case 4: continue
             case 3: thread.isHiddenByBlacklist = true
@@ -429,8 +447,16 @@ final class ThreadListViewController: UIViewController {
     private func applySnapshot(animating: Bool) {
         var snapshot = NSDiffableDataSourceSnapshot<Int, ListItem>()
         snapshot.appendSections([0])
-        snapshot.appendItems(threads.map { .thread($0) })
-        snapshot.appendItems([.footer(isLoading: isLoading, canLoadMore: canLoadMore, error: footerError)])
+        var seenIds = Set<Int>()
+        var items: [ListItem] = []
+        items.reserveCapacity(threads.count + 1)
+        for thread in threads {
+            // 兜底:同一 tid 出现两次会让 diffable data source 抛 IDENTIFIER_ALREADY_EXISTS 崩溃
+            guard seenIds.insert(thread.id).inserted else { continue }
+            items.append(.thread(thread))
+        }
+        items.append(.footer(isLoading: isLoading, canLoadMore: canLoadMore, error: footerError))
+        snapshot.appendItems(items)
         dataSource.apply(snapshot, animatingDifferences: animating)
     }
 

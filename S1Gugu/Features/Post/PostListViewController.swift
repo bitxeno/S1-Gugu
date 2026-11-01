@@ -375,7 +375,9 @@ final class PostListViewController: UIViewController {
                     self.galleryImages = []
                     self.currentVote = result.vote
                 } else {
-                    self.posts += filtered
+                    // 翻页边界 API 可能重复返回上一页末楼,按 pid 去重后再追加
+                    let existingPids = Set(self.posts.map(\.pid))
+                    self.posts += filtered.filter { !existingPids.contains($0.pid) }
                 }
                 for (pid, blocks) in parsedBlocks {
                     self.blocksByPid[pid] = blocks
@@ -450,7 +452,10 @@ final class PostListViewController: UIViewController {
         let snapshot = BlacklistService.shared.snapshot
         var output: [Post] = []
         output.reserveCapacity(input.count)
+        var seenPids = Set<Int>()
         for var post in input {
+            // pid 缺失时服务端可能给 0、同一响应也可能重复返回同一楼;pid 是 section 标识,必须唯一
+            guard seenPids.insert(post.pid).inserted else { continue }
             if post.isFirst {
                 // 主楼标题也可命中屏蔽词
                 if snapshot.wordLevel(in: threadTitle) == 2 { continue }
@@ -510,7 +515,10 @@ final class PostListViewController: UIViewController {
 
     private func applySnapshot() {
         var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
+        var appendedPids = Set<Int>()
         for post in posts {
+            // 兜底:同一 pid 出现两次会让 diffable data source 抛 IDENTIFIER_ALREADY_EXISTS 崩溃
+            guard appendedPids.insert(post.pid).inserted else { continue }
             snapshot.appendSections([post.pid])
             if post.hideFlag == 1 {
                 snapshot.appendItems([.hidden(remark: post.hideRemark)], toSection: post.pid)
