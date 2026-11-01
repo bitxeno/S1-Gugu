@@ -72,13 +72,11 @@ final class UserThreadsViewController: UIViewController {
                 switch self.mode {
                 case .threads:
                     let (items, more) = try await DiscuzAPI.shared.homeThreads(uid: self.uid, page: targetPage)
-                    let known = Set(self.threadItems.map(\.url))
-                    self.threadItems += items.filter { !known.contains($0.url) }
+                    self.threadItems.appendUniqued(contentsOf: items, by: \.url)
                     hasMore = more
                 case .replies:
                     let (items, more) = try await DiscuzAPI.shared.homeReplies(uid: self.uid, page: targetPage)
-                    let known = Set(self.replyItems.map(\.url))
-                    self.replyItems += items.filter { !known.contains($0.url) }
+                    self.replyItems.appendUniqued(contentsOf: items, by: \.url)
                     hasMore = more
                 }
                 self.page = targetPage

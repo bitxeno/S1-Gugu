@@ -100,7 +100,7 @@ final class SearchViewController: UIViewController {
             do {
                 if self.mode == .forum {
                     let page = try await DiscuzAPI.shared.searchForum(keyword: keyword, pageHrefTemplate: nil, page: 1)
-                    self.forumResults = page.results
+                    self.forumResults = page.results.uniqued(by: \.id)
                     self.searchCount = page.count
                     self.currentPage = page.page
                     self.maxPage = page.maxPage
@@ -139,8 +139,7 @@ final class SearchViewController: UIViewController {
                     pageHrefTemplate: template,
                     page: self.currentPage + 1
                 )
-                let known = Set(self.forumResults.map(\.id))
-                self.forumResults += page.results.filter { !known.contains($0.id) }
+                self.forumResults.appendUniqued(contentsOf: page.results, by: \.id)
                 self.currentPage = page.page
                 self.maxPage = page.maxPage
                 self.renderAttributedBodies()

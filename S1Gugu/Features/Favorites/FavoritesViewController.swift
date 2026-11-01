@@ -116,7 +116,7 @@ final class FavoritesViewController: UIViewController {
             guard let self else { return }
             do {
                 let result = try await DiscuzAPI.shared.favorites(page: 1)
-                self.favorites = result.items
+                self.favorites = result.items.uniqued(by: \.id)
                 self.page = 1
                 self.canLoadMore = result.hasMore
                 self.isLoading = false
@@ -161,8 +161,7 @@ extension FavoritesViewController: UICollectionViewDelegate {
             guard let self else { return }
             do {
                 let result = try await DiscuzAPI.shared.favorites(page: self.page + 1)
-                let known = Set(self.favorites.map(\.id))
-                self.favorites += result.items.filter { !known.contains($0.id) }
+                self.favorites.appendUniqued(contentsOf: result.items, by: \.id)
                 self.page += 1
                 self.canLoadMore = result.hasMore
             } catch {

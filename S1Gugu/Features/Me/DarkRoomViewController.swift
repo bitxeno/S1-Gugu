@@ -45,8 +45,7 @@ final class DarkRoomViewController: UIViewController {
             guard let self else { return }
             do {
                 let page = try await DiscuzAPI.shared.darkRoom(anchorCid: self.nextCid)
-                let known = Set(self.items.map(\.cid))
-                self.items += page.items.filter { !known.contains($0.cid) }
+                self.items.appendUniqued(contentsOf: page.items, by: \.cid)
                 self.nextCid = page.nextCid
                 self.canLoadMore = page.nextCid != nil && !page.items.isEmpty
                 self.isLoading = false

@@ -402,9 +402,8 @@ final class ThreadListViewController: UIViewController {
             do {
                 let result = try await DiscuzAPI.shared.threads(fid: forum.id, page: self.page + 1, typeId: self.selectedTypeId)
                 guard !Task.isCancelled else { return }
-                // 分页接口每页都会重复携带置顶帖,追加前按 tid 去重
-                let existingIds = Set(self.threads.map(\.id))
-                self.threads += self.filter(result.threads).filter { !existingIds.contains($0.id) }
+                // 分页接口每页都会重复携带置顶帖
+                self.threads.appendUniqued(contentsOf: self.filter(result.threads), by: \.id)
                 self.page += 1
                 self.canLoadMore = !result.threads.isEmpty
                 self.isLoading = false
@@ -423,10 +422,7 @@ final class ThreadListViewController: UIViewController {
         let snapshot = BlacklistService.shared.snapshot
         var output: [Thread] = []
         output.reserveCapacity(input.count)
-        var seenIds = Set<Int>()
-        for var thread in input {
-            // tid 是快照 item 标识:置顶帖跨页重复、tid 缺失解析为 0 时必须去重
-            guard seenIds.insert(thread.id).inserted else { continue }
+        for var thread in input.uniqued(by: \.id) {
             switch snapshot.forumLevel(uid: thread.authorId, name: thread.author) {
             case 4: continue
             case 3: thread.isHiddenByBlacklist = true
@@ -447,14 +443,8 @@ final class ThreadListViewController: UIViewController {
     private func applySnapshot(animating: Bool) {
         var snapshot = NSDiffableDataSourceSnapshot<Int, ListItem>()
         snapshot.appendSections([0])
-        var seenIds = Set<Int>()
-        var items: [ListItem] = []
-        items.reserveCapacity(threads.count + 1)
-        for thread in threads {
-            // 兜底:同一 tid 出现两次会让 diffable data source 抛 IDENTIFIER_ALREADY_EXISTS 崩溃
-            guard seenIds.insert(thread.id).inserted else { continue }
-            items.append(.thread(thread))
-        }
+        // 兜底:同一 tid 两次出现会让 diffable data source 抛 IDENTIFIER_ALREADY_EXISTS
+        var items = threads.uniqued(by: \.id).map { ListItem.thread($0) }
         items.append(.footer(isLoading: isLoading, canLoadMore: canLoadMore, error: footerError))
         snapshot.appendItems(items)
         dataSource.apply(snapshot, animatingDifferences: animating)

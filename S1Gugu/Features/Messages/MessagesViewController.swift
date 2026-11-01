@@ -221,8 +221,7 @@ extension PMListViewController {
             guard let self else { return }
             do {
                 let result = try await DiscuzAPI.shared.pmGroups(page: self.page + 1)
-                let known = Set(self.groups.map(\.id))
-                self.groups += result.items.filter { !known.contains($0.id) }
+                self.groups.appendUniqued(contentsOf: result.items, by: \.id)
                 self.page += 1
                 self.canLoadMore = result.hasMore
             } catch {
@@ -368,8 +367,7 @@ extension PMThreadViewController: UITableViewDataSource, UITableViewDelegate {
             do {
                 let nextPage = self.page + 1
                 let result = try await DiscuzAPI.shared.pmMessages(touid: self.touid, page: nextPage)
-                let known = Set(self.messages.map(\.id))
-                let older = result.items.filter { !known.contains($0.id) }
+                let older = result.items.uniqued(by: \.id, excluding: self.messages)
                 if older.isEmpty { self.canLoadMore = false }
                 self.messages.insert(contentsOf: older, at: 0)
                 self.page = nextPage
@@ -590,8 +588,7 @@ extension NoticeViewController: UITableViewDataSource, UITableViewDelegate {
             guard let self else { return }
             do {
                 let result = try await DiscuzAPI.shared.notices(page: self.page + 1)
-                let known = Set(self.notes.map(\.id))
-                self.notes += result.items.filter { !known.contains($0.id) }
+                self.notes.appendUniqued(contentsOf: result.items, by: \.id)
                 self.page += 1
                 self.canLoadMore = result.hasMore
             } catch {
