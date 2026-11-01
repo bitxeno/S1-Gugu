@@ -34,49 +34,82 @@ enum BlockSplitter {
 
     // MARK: - Walk
 
+    private static let blockLevelTags: Set<String> = [
+        "p", "div", "ul", "ol", "hr", "h1", "h2", "h3", "h4", "h5", "h6", "center",
+    ]
+
     private static func walk(
         nodes: [Node],
         baseURL: URL?,
         quoteReplacer: ((String) -> String?)?,
         into blocks: inout [PostBlock]
     ) {
+        // 行内缓冲:文字节点、表情图、行内元素连续出现时合并为同一个文本块,
+        // 表情才能与文字同排;只有块级结构(引用/代码/附件/独立图/块级标签)才断开
+        var inline: [Node] = []
+        func flushInline() {
+            guard !inline.isEmpty else { return }
+            appendTextRun(nodes: inline, baseURL: baseURL, into: &blocks)
+            inline.removeAll()
+        }
+
         for node in nodes {
             guard let element = node as? Element else {
-                appendTextRun(node: node, baseURL: baseURL, into: &blocks)
+                inline.append(node)
                 continue
             }
             let tag = element.tagName().lowercased()
             let className = (try? element.className()) ?? ""
 
             if tag == "blockquote" || (tag == "div" && className.contains("quote")) {
+                flushInline()
                 appendQuote(element: element, baseURL: baseURL, replacer: quoteReplacer, into: &blocks)
             } else if tag == "div" && className.contains("blockcode") {
+                flushInline()
                 appendCode(element: element, into: &blocks)
             } else if tag == "pre" {
+                flushInline()
                 blocks.append(.code(elementText(element)))
             } else if tag == "attach" {
+                flushInline()
                 if let file = fileAttachment(from: element, baseURL: baseURL) {
                     blocks.append(.fileAttachment(file))
                 }
             } else if tag == "table" {
+                flushInline()
                 blocks.append(.fallback(AttributedText(HtmlAttributedBuilder.attributed(
                     from: element, style: HtmlAttributedBuilder.bodyStyle(), baseURL: baseURL
                 ))))
             } else if let image = standaloneImage(in: element, baseURL: baseURL) {
+                flushInline()
                 blocks.append(.image(image))
+            } else if blockLevelTags.contains(tag) {
+                flushInline()
+                appendTextRun(nodes: [node], baseURL: baseURL, into: &blocks)
             } else {
-                appendTextRun(node: node, baseURL: baseURL, into: &blocks)
+                inline.append(node)
             }
         }
+        flushInline()
     }
 
-    private static func appendTextRun(node: Node, baseURL: URL?, into blocks: inout [PostBlock]) {
+    private static func appendTextRun(nodes: [Node], baseURL: URL?, into blocks: inout [PostBlock]) {
         let attributed = HtmlAttributedBuilder.attributed(
-            from: [node], style: HtmlAttributedBuilder.bodyStyle(), baseURL: baseURL
+            from: nodes, style: HtmlAttributedBuilder.bodyStyle(), baseURL: baseURL
         )
         guard attributed.length > 0, attributed.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false || containsAttachment(attributed)
         else { return }
-        blocks.append(.text(AttributedText(attributed)))
+        // 裁掉块尾换行:文末 <br> 只会在块内多出空白行
+        let trimmed = trimTrailingNewlines(attributed)
+        blocks.append(.text(AttributedText(trimmed)))
+    }
+
+    private static func trimTrailingNewlines(_ attributed: NSAttributedString) -> NSAttributedString {
+        let mutable = NSMutableAttributedString(attributedString: attributed)
+        while let last = mutable.string.last, last == "\n" || last == "\u{2028}" {
+            mutable.deleteCharacters(in: NSRange(location: mutable.length - 1, length: 1))
+        }
+        return mutable
     }
 
     private static func containsAttachment(_ attributed: NSAttributedString) -> Bool {
@@ -188,13 +221,28 @@ enum BlockSplitter {
 
     private static func standaloneImage(in element: Element, baseURL: URL?) -> PostImage? {
         if element.tagName().lowercased() == "img" {
+            // 表情图并入行内文本,不作为独立图片块
+            guard !isEmoticon(element) else { return nil }
             return makeImage(from: element, baseURL: baseURL)
         }
         guard let images = try? element.select("img"), images.size() == 1 else { return nil }
         // 容器内只有一张图且无有效文本时,视为独立图片段
         guard !hasVisibleText(element), !containsSpecialStructure(element) else { return nil }
         guard let img = images.first() else { return nil }
+        if isEmoticon(img) { return nil }
         return makeImage(from: img, baseURL: baseURL)
+    }
+
+    /// 表情图:smiley 路径,或声明尺寸小于 64 的图(其余视为正文图片)
+    private static func isEmoticon(_ img: Element) -> Bool {
+        let src = ((try? img.attr("src")) ?? "").lowercased()
+        if src.contains("smiley") { return true }
+        if let width = dimension(of: img, attribute: "width"),
+           let height = dimension(of: img, attribute: "height"),
+           width < 64, height < 64 {
+            return true
+        }
+        return false
     }
 
     private static func hasVisibleText(_ element: Element) -> Bool {

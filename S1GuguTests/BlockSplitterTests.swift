@@ -76,4 +76,23 @@ final class BlockSplitterTests: XCTestCase {
         }.first
         XCTAssertTrue(firstText?.contains("\u{FFFC}") ?? false)
     }
+
+    func testTopLevelSmileyMergesIntoTextRun() {
+        // 顶层裸节点:文字 + 表情 + 文字应合并为同一个文本块(表情与文字同行)
+        let blocks = BlockSplitter.split(
+            html: #"发出来给大家一起蹬<img src="https://static.stage1st.com/image/smiley/fox/02.gif" />哈哈"#,
+            baseURL: nil
+        )
+        XCTAssertFalse(blocks.contains { block in
+            if case .image = block { return true }
+            return false
+        }, "表情不应成为独立图片块,实际:\(blocks)")
+        XCTAssertEqual(blocks.count, 1, "相邻行内内容应合并为单块,实际:\(blocks)")
+        guard case let .text(attributed)? = blocks.first else {
+            return XCTFail("应为文本块,实际:\(blocks)")
+        }
+        XCTAssertTrue(attributed.value.string.contains("发出来给大家一起蹬"))
+        XCTAssertTrue(attributed.value.string.contains("\u{FFFC}"))
+        XCTAssertTrue(attributed.value.string.contains("哈哈"))
+    }
 }

@@ -18,7 +18,9 @@ final class PostHeaderCell: UICollectionViewCell {
 
     private let avatarView = UIImageView()
     private let authorLabel = UILabel()
-    private let opBadge = UILabel()
+    private let opBadge = UIView()
+    private let opBadgeLabel = UILabel()
+    private let floorLabel = UILabel()
     private let metaLabel = UILabel()
 
     var onAvatarTap: (() -> Void)?
@@ -38,14 +40,21 @@ final class PostHeaderCell: UICollectionViewCell {
         authorLabel.textColor = Theme.label
         authorLabel.adjustsFontForContentSizeCategory = true
 
-        opBadge.text = "楼主"
-        opBadge.font = .preferredFont(forTextStyle: .caption2)
-        opBadge.textColor = Theme.accent
-        opBadge.textAlignment = .center
-        opBadge.layer.cornerRadius = 4
-        opBadge.layer.borderWidth = 1
-        opBadge.layer.borderColor = Theme.accent.cgColor
-        opBadge.adjustsFontForContentSizeCategory = true
+        // 楼主徽标:方框样式(同主题列表「置顶」),容器 + 内边距 label
+        opBadgeLabel.text = "楼主"
+        opBadgeLabel.font = .preferredFont(forTextStyle: .caption2)
+        opBadgeLabel.adjustsFontForContentSizeCategory = true
+        opBadge.clipsToBounds = true
+        opBadge.addSubview(opBadgeLabel)
+        opBadgeLabel.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview().inset(5)
+            make.top.bottom.equalToSuperview().inset(2)
+        }
+
+        // 楼层号固定右上角,展示为 "#1" 样式
+        floorLabel.font = .preferredFont(forTextStyle: .footnote)
+        floorLabel.textColor = Theme.secondaryLabel
+        floorLabel.adjustsFontForContentSizeCategory = true
 
         metaLabel.font = .preferredFont(forTextStyle: .caption1)
         metaLabel.textColor = Theme.tertiaryLabel
@@ -62,6 +71,7 @@ final class PostHeaderCell: UICollectionViewCell {
 
         contentView.addSubview(avatarView)
         contentView.addSubview(textStack)
+        contentView.addSubview(floorLabel)
         avatarView.snp.makeConstraints { make in
             make.leading.equalTo(contentView.layoutMarginsGuide.snp.leading)
             make.top.equalToSuperview().inset(12)
@@ -71,10 +81,11 @@ final class PostHeaderCell: UICollectionViewCell {
         textStack.snp.makeConstraints { make in
             make.leading.equalTo(avatarView.snp.trailing).offset(10)
             make.centerY.equalTo(avatarView)
-            make.trailing.lessThanOrEqualTo(contentView.layoutMarginsGuide.snp.trailing)
+            make.trailing.lessThanOrEqualTo(floorLabel.snp.leading).offset(-8)
         }
-        opBadge.snp.makeConstraints { make in
-            make.height.equalTo(16)
+        floorLabel.snp.makeConstraints { make in
+            make.top.equalToSuperview().inset(12)
+            make.trailing.equalTo(contentView.layoutMarginsGuide.snp.trailing)
         }
     }
 
@@ -88,11 +99,21 @@ final class PostHeaderCell: UICollectionViewCell {
 
     func configure(_ model: PostHeaderModel) {
         authorLabel.text = model.author
+
+        // 徽标在 configure 里着色:主题切换/深浅模式时注册 cell 会重走配置
+        opBadge.layer.borderColor = Theme.accent.withAlphaComponent(0.45).cgColor
+        opBadge.layer.borderWidth = 1
+        opBadge.layer.cornerRadius = 3
+        opBadgeLabel.textColor = Theme.accent
         opBadge.isHidden = !model.isOp
-        var meta: [String] = []
-        if !model.dateTimeText.isEmpty { meta.append(model.dateTimeText) }
-        if let floor = model.floor { meta.append("\(floor) 楼") }
-        metaLabel.text = meta.joined(separator: " · ")
+
+        if let floor = model.floor {
+            floorLabel.text = "#\(floor)"
+            floorLabel.isHidden = false
+        } else {
+            floorLabel.isHidden = true
+        }
+        metaLabel.text = model.dateTimeText
 
         if let url = model.avatarURL {
             avatarView.kf.setImage(
@@ -140,6 +161,31 @@ final class TextBlockCell: UICollectionViewCell, UITextViewDelegate {
 
     func configure(_ attributed: NSAttributedString) {
         textView.attributedText = attributed
+        loadInlineImages(in: attributed)
+    }
+
+    /// 行内表情:占位附件经 InlineImageStore 异步回填图片
+    private func loadInlineImages(in attributed: NSAttributedString) {
+        let full = NSRange(location: 0, length: attributed.length)
+        attributed.enumerateAttribute(.attachment, in: full) { value, _, _ in
+            guard let attachment = value as? InlineImageAttachment, attachment.image == nil else { return }
+            InlineImageStore.shared.image(for: attachment.url) { [weak self] image in
+                guard let self, let image else { return }
+                attachment.image = image
+                self.refreshAttachment(attachment)
+            }
+        }
+    }
+
+    /// 通知 TextKit 附件属性变化,重排当前文本(高度已被占位 bounds 预留,无需重建布局)
+    private func refreshAttachment(_ attachment: InlineImageAttachment) {
+        let storage = textView.textStorage
+        let full = NSRange(location: 0, length: storage.length)
+        storage.enumerateAttribute(.attachment, in: full) { value, range, stop in
+            guard (value as? InlineImageAttachment) === attachment else { return }
+            storage.edited(.editedAttributes, range: range, changeInLength: 0)
+            stop.pointee = true
+        }
     }
 
     // MARK: UITextViewDelegate

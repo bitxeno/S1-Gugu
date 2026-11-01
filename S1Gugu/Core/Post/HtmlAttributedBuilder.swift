@@ -49,7 +49,20 @@ enum HtmlAttributedBuilder {
         if let text = node as? TextNode {
             let raw = text.getWholeText()
             guard !raw.isEmpty else { return }
-            let attributed = NSAttributedString(string: raw, attributes: attributes(for: style))
+            // 纯换行/回车文本节点是 <br> 之间的格式噪声(浏览器不渲染),跳过,
+            // 否则 "…<br />\n…" 会渲染成两个换行,段间空白成倍放大
+            if raw.contains("\n") || raw.contains("\r"),
+               raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return
+            }
+            // <br /> 后源文本残留的 \r\n:Discuz 已把回车转成 <br>,残留换行符
+            // 会被再断一次行(浏览器按空白折叠忽略它),这里同样剥掉
+            var content = Substring(raw)
+            if output.string.last == "\n" || output.string.last == "\r" {
+                content = content.drop { $0 == "\n" || $0 == "\r" || $0 == " " || $0 == "\t" }
+                if content.isEmpty { return }
+            }
+            let attributed = NSAttributedString(string: String(content), attributes: attributes(for: style))
             output.append(attributed)
             return
         }
