@@ -270,6 +270,7 @@ final class ThreadListViewController: UIViewController {
     private var threadTypes: [String: String] = [:]
     private var subForums: [Forum] = []
     private var selectedTypeId: String?
+    private var isForumFavorite = false
 
     init(forum: Forum) {
         self.forum = forum
@@ -289,16 +290,20 @@ final class ThreadListViewController: UIViewController {
         setupPlaceholder()
         Task { [weak self] in
             await BlacklistService.shared.reloadIfNeeded()
-            await self?.reloadReadState()
-            self?.reloadFirstPage()
+            guard let self else { return }
+            self.isForumFavorite = await ForumFavoriteService.isFavorite(forumId: self.forum.id)
+            await self.reloadReadState()
+            self.reloadFirstPage()
         }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // 从帖子返回时刷新已读状态与上次浏览回复数(打开帖子即写入历史与 dbthread)
+        // 从帖子返回时刷新已读状态、上次浏览回复数与版块收藏状态
         Task { [weak self] in
-            await self?.reloadReadState()
+            guard let self else { return }
+            self.isForumFavorite = await ForumFavoriteService.isFavorite(forumId: self.forum.id)
+            await self.reloadReadState()
         }
     }
 
@@ -415,7 +420,23 @@ final class ThreadListViewController: UIViewController {
                 }
             ))
         }
+        children.append(makeFavoriteMenuAction())
         return UIMenu(children: children)
+    }
+
+    /// 收藏/取消收藏当前版块(本地 forumfavorite 表)
+    private func makeFavoriteMenuAction() -> UIAction {
+        UIAction(
+            title: isForumFavorite ? "取消收藏版块" : "收藏版块",
+            image: UIImage(systemName: isForumFavorite ? "star.slash" : "star"),
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task {
+                await ForumFavoriteService.toggle(forum: self.forum)
+                self.isForumFavorite.toggle()
+                Toast.show(self.isForumFavorite ? "已收藏版块" : "已取消收藏", in: self.view)
+            }
+        }
     }
 
     private func setupPlaceholder() {

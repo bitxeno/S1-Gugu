@@ -119,3 +119,54 @@ enum DbThreadService {
         }
     }
 }
+
+/// 版块收藏(纯本地):论坛首页顶部「收藏」区块,支持拖动排序。
+enum ForumFavoriteService {
+
+    static func entries() async -> [ForumFavoriteEntry] {
+        (try? await AppDatabase.shared.read { database in
+            try ForumFavoriteEntry.order { $0.sortOrder }.fetchAll(database)
+        }) ?? []
+    }
+
+    static func isFavorite(forumId: Int) async -> Bool {
+        guard forumId > 0 else { return false }
+        return (try? await AppDatabase.shared.read { database in
+            try ForumFavoriteEntry.find(forumId).fetchOne(database) != nil
+        }) ?? false
+    }
+
+    /// 切换收藏状态,返回切换后是否已收藏
+    @discardableResult
+    static func toggle(forum: Forum) async -> Bool {
+        let forumId = forum.id
+        guard forumId > 0 else { return false }
+        return (try? await AppDatabase.shared.write { database -> Bool in
+            if try ForumFavoriteEntry.find(forumId).fetchOne(database) != nil {
+                try ForumFavoriteEntry.find(forumId).delete().execute(database)
+                return false
+            }
+            let maxOrder = try ForumFavoriteEntry
+                .order { $0.sortOrder.desc() }
+                .limit(1)
+                .fetchOne(database)?.sortOrder ?? -1
+            try ForumFavoriteEntry.upsert {
+                ForumFavoriteEntry(forumId: forumId, name: forum.displayName, sortOrder: maxOrder + 1)
+            }.execute(database)
+            return true
+        }) ?? false
+    }
+
+    /// 拖动排序落地:把最终顺序写回 sortOrder
+    static func saveOrder(ids: [Int]) async {
+        guard !ids.isEmpty else { return }
+        _ = try? await AppDatabase.shared.write { database in
+            for (index, forumId) in ids.enumerated() {
+                try database.execute(
+                    sql: "UPDATE \"forumfavorite\" SET \"sortOrder\" = ? WHERE \"forumId\" = ?",
+                    arguments: [index, forumId]
+                )
+            }
+        }
+    }
+}

@@ -1,14 +1,25 @@
 import UIKit
 import SnapKit
 
-/// Tab 1 首页:版块组列表(forumindex 一次全量,按分类分组)。
+/// Tab 1 首页:顶部「收藏」区块(本地 forumfavorite 表,无收藏时不显示)+
+/// 版块组列表(forumindex 一次全量,按分类分组)。收藏区块支持拖动排序。
 @MainActor
 final class ForumGroupsViewController: UIViewController {
 
-    /// 分类名作为 Section 标题
+    /// Section 标识:收藏区块用专用前缀避免与分类名冲突,其余为分类名
+    enum Section {
+        static let favorites = "\u{0}favorites"
+    }
+
+    /// 分类名作为 Section 标题;收藏区块无标题
     final class DataSource: UITableViewDiffableDataSource<String, Forum> {
         override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-            sectionIdentifier(for: section)
+            let id = sectionIdentifier(for: section)
+            return id == Section.favorites ? nil : id
+        }
+
+        override func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
+            sectionIdentifier(for: indexPath.section) == Section.favorites
         }
     }
 
@@ -67,14 +78,18 @@ final class ForumGroupsViewController: UIViewController {
         let cell = tableView.dequeueReusableCell(withIdentifier: "forum", for: indexPath)
         cell.applyFlatListBackground()
         var config = cell.defaultContentConfiguration()
+        let isFavorite = dataSource.sectionIdentifier(for: indexPath.section) == Section.favorites
         config.text = forum.displayName
         config.textProperties.font = .preferredFont(forTextStyle: .body)
         config.textProperties.color = Theme.label
-        config.secondaryText = "主题 \(forum.threads) · 今日 \(forum.todayposts)"
-        config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        config.secondaryTextProperties.color = Theme.secondaryLabel
-        config.image = UIImage(systemName: "number")
-        config.imageProperties.tintColor = Theme.accent
+        // 收藏区块本地不跟踪主题/今日数,不渲染占位副标题
+        if !isFavorite {
+            config.secondaryText = "主题 \(forum.threads) · 今日 \(forum.todayposts)"
+            config.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
+            config.secondaryTextProperties.color = Theme.secondaryLabel
+        }
+        config.image = UIImage(systemName: isFavorite ? "star.fill" : "number")
+        config.imageProperties.tintColor = isFavorite ? .systemYellow : Theme.accent
         config.imageProperties.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .body)
         cell.contentConfiguration = config
         cell.accessoryType = .disclosureIndicator
@@ -92,7 +107,7 @@ final class ForumGroupsViewController: UIViewController {
             // 缓存先行:秒开,后台继续刷新
             if let cached = await ResponseCacheService.json(forKey: cacheKey) {
                 guard !Task.isCancelled else { return }
-                self.render(DiscuzAPI.parseForumIndex(cached))
+                await self.renderWithFavorites(DiscuzAPI.parseForumIndex(cached))
             } else if showSpinner {
                 placeholder.state = .loading("正在加载版块")
             }
@@ -100,7 +115,7 @@ final class ForumGroupsViewController: UIViewController {
             do {
                 let sections = try await DiscuzAPI.shared.forumIndex()
                 guard !Task.isCancelled else { return }
-                self.render(sections)
+                await self.renderWithFavorites(sections)
             } catch {
                 guard !Task.isCancelled else { return }
                 // 缓存已渲染:静默保留,不弹错误页
@@ -111,10 +126,40 @@ final class ForumGroupsViewController: UIViewController {
         }
     }
 
-    private func render(_ sections: [ForumSection]) {
+    /// 渲染版块分组 + 顶部收藏区块(无收藏时自动不出现)
+    private func renderWithFavorites(_ sections: [ForumSection]) async {
+        let favorites = await ForumFavoriteService.entries()
+        render(sections, favorites: favorites)
+    }
+
+    /// 从版块页返回时只刷新收藏区块(收藏/取消收藏/排序可能已变),不重新请求网络
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        Task { [weak self] in
+            guard let self, self.dataSource != nil else { return }
+            let snapshot = self.dataSource.snapshot()
+            let sections = snapshot.sectionIdentifiers
+                .filter { $0 != Section.favorites }
+                .compactMap { id -> ForumSection? in
+                    let items = snapshot.itemIdentifiers(inSection: id)
+                    guard !items.isEmpty else { return nil }
+                    return ForumSection(id: id, categoryName: id, forums: items)
+                }
+            await self.renderWithFavorites(sections)
+        }
+    }
+
+    private func render(_ sections: [ForumSection], favorites: [ForumFavoriteEntry]) {
         placeholder.isHidden = true
         tableView.refreshControl?.endRefreshing()
         var snapshot = NSDiffableDataSourceSnapshot<String, Forum>()
+        if !favorites.isEmpty {
+            snapshot.appendSections([Section.favorites])
+            snapshot.appendItems(favorites.map { entry in
+                // 收藏区块主题/今日数本地不跟踪,渲染为 0 走通用 cell 样式
+                Forum(fid: String(entry.forumId), name: entry.name)
+            }, toSection: Section.favorites)
+        }
         for section in sections {
             snapshot.appendSections([section.categoryName])
             snapshot.appendItems(section.forums, toSection: section.categoryName)
@@ -139,5 +184,37 @@ extension ForumGroupsViewController: UITableViewDelegate {
         tableView.deselectRow(at: indexPath, animated: true)
         guard let forum = dataSource.itemIdentifier(for: indexPath) else { return }
         navigationController?.pushViewController(ThreadListViewController(forum: forum), animated: true)
+    }
+
+    // MARK: 拖动排序(仅收藏区块,长按拖动,无需编辑模式)
+
+    func tableView(_ tableView: UITableView, itemsForBeginning session: UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
+        guard dataSource.sectionIdentifier(for: indexPath.section) == Section.favorites,
+              let forum = dataSource.itemIdentifier(for: indexPath) else { return [] }
+        let dragItem = UIDragItem(itemProvider: NSItemProvider(object: forum.displayName as NSString))
+        dragItem.localObject = forum
+        return [dragItem]
+    }
+
+    func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
+        guard dataSource.sectionIdentifier(for: sourceIndexPath.section) == Section.favorites,
+              dataSource.sectionIdentifier(for: destinationIndexPath.section) == Section.favorites else { return }
+        var snapshot = dataSource.snapshot()
+        let favorites = snapshot.itemIdentifiers(inSection: Section.favorites)
+        guard favorites.indices.contains(sourceIndexPath.row),
+              favorites.indices.contains(destinationIndexPath.row) else { return }
+        let moved = favorites[sourceIndexPath.row]
+        var reordered = favorites
+        reordered.move(fromOffsets: IndexSet(integer: sourceIndexPath.row), toOffset: destinationIndexPath.row)
+        guard reordered != favorites else { return }
+        // 用移动后相邻条目作锚点,把重排以增量 move 应用到当前快照
+        let movedIndex = reordered.firstIndex(of: moved) ?? 0
+        if movedIndex + 1 < reordered.count {
+            snapshot.moveItem(moved, beforeItem: reordered[movedIndex + 1])
+        } else if movedIndex >= 1 {
+            snapshot.moveItem(moved, afterItem: reordered[movedIndex - 1])
+        }
+        dataSource.apply(snapshot, animatingDifferences: false)
+        Task { await ForumFavoriteService.saveOrder(ids: reordered.map(\.id)) }
     }
 }

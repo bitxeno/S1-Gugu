@@ -39,6 +39,19 @@ struct HistoryEntry: Identifiable, Sendable, Equatable, Hashable {
     var id: Int { threadId }
 }
 
+// MARK: - 版块收藏(纯本地,论坛首页顶部「收藏」区块,支持拖动排序)
+
+@Table("forumfavorite")
+struct ForumFavoriteEntry: Identifiable, Sendable, Equatable, Hashable {
+    @Column(primaryKey: true)
+    var forumId: Int
+    var name: String = ""
+    /// 展示顺序,小在前;新增追加到末尾
+    var sortOrder: Int = 0
+
+    var id: Int { forumId }
+}
+
 // MARK: - 上次浏览时的回复数(列表「+N 新回复」标记,对齐 S1-Next DbThread)
 
 @Table("dbthread")

@@ -120,6 +120,15 @@ final class AppDatabase: Sendable {
                 ) STRICT
                 """).execute(database)
         }
+        migrator.registerMigration("v6-forum-favorite") { database in
+            try #sql("""
+                CREATE TABLE "forumfavorite" (
+                  "forumId" INTEGER PRIMARY KEY,
+                  "name" TEXT NOT NULL DEFAULT '',
+                  "sortOrder" INTEGER NOT NULL DEFAULT 0
+                ) STRICT
+                """).execute(database)
+        }
         try migrator.migrate(writer)
         return AppDatabase(writer: writer)
     }
