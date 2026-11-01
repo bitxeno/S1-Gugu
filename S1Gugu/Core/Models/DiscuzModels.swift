@@ -1,4 +1,5 @@
 import Foundation
+import SwiftSoup
 import SwiftyJSON
 
 // MARK: - SwiftyJSON 宽容读取扩展
@@ -367,7 +368,9 @@ struct VoteOptionInfo: Sendable, Identifiable, Hashable {
 
     init(json: JSON) {
         id = json["polloptionid"].flexibleInt
-        option = json["_option"].flexibleString
+        // 移动 API 的选项文字字段是 polloption(带 <a> 等已转义 HTML),解码实体后再展示
+        let raw = json["polloption"].flexibleString
+        option = (try? SwiftSoup.Entities.unescape(raw)) ?? raw
         votes = json["votes"].flexibleInt
         percent = json["percent"].flexibleStringOrNil
     }
@@ -385,9 +388,10 @@ struct VoteInfo: Sendable, Hashable {
         let allow = json["allowvote"]
         allowVote = allow.type == .bool ? allow.boolValue : allow.flexibleString == "1"
         maxChoices = json["maxchoices"].flexibleInt
-        let multipleJson = json["multiple"]
-        self.multiple = multipleJson.type == .bool ? multipleJson.boolValue : multipleJson.flexibleString == "1"
+        // 服务端仅在多选时下发 multiple=1;缺失即为单选,不能依赖该字段存在
+        multiple = maxChoices > 1 || json["multiple"].flexibleString == "1"
         let visible = json["visiblepoll"]
+        // visiblepoll=1 表示"对该用户隐藏结果"(未投票且未过期),并非允许投票
         visiblePoll = visible.type == .bool ? visible.boolValue : visible.flexibleString == "1"
         votersCount = json["voterscount"].flexibleInt
         options = json["polloptions"]

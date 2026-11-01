@@ -135,6 +135,10 @@ enum WebChannel {
         if let match = html.firstMatch(of: /errorhandle_[^(]*\(([^)]*)\)/) {
             return AjaxResult(success: false, message: ajaxParam(String(match.1), index: 0))
         }
+        // 投票等接口成功时(showmessage location => true)只回跳转脚本,无 handle 回调
+        if html.contains("window.location.href") {
+            return AjaxResult(success: true, message: "")
+        }
         if let alert = extractAlertError(html) {
             return AjaxResult(success: false, message: alert)
         }

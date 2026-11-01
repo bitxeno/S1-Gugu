@@ -48,6 +48,8 @@ final class FavoritesViewController: UIViewController {
     private func setupCollectionView() {
         var listConfig = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         listConfig.showsSeparators = true
+        // list section 默认自绘系统背景,必须显式指定,否则盖住页面米白
+        listConfig.backgroundColor = Theme.background
         let layout = UICollectionViewCompositionalLayout { _, environment in
             NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
         }
