@@ -9,7 +9,7 @@ enum BlockSplitter {
         html: String,
         baseURL: URL?,
         quoteReplacer: ((String) -> String?)? = nil,
-        extraAttachments: [PostFileAttachment] = []
+        extraAttachments: [PostAttachment] = []
     ) -> [PostBlock] {
         guard !html.isEmpty else { return [] }
         guard let document = try? SwiftSoup.parseBodyFragment(html),
@@ -19,14 +19,25 @@ enum BlockSplitter {
         var blocks: [PostBlock] = []
         walk(nodes: body.getChildNodes(), baseURL: baseURL, quoteReplacer: quoteReplacer, into: &blocks)
 
-        // 未在正文中引用的文件附件补到末尾
+        // 未在正文中引用的附件补到末尾:图片附件 → 图片块,文件 → 附件块。
+        // 移动 API 游客态不把附件图内嵌进 message(需登录才下发 attachments 数据)
         if !extraAttachments.isEmpty {
             let referenced = Set(blocks.compactMap { block -> URL? in
                 if case let .fileAttachment(file) = block { return file.url }
+                if case let .image(image) = block { return image.url }
                 return nil
             })
-            for attachment in extraAttachments where !referenced.contains(attachment.url) {
-                blocks.append(.fileAttachment(attachment))
+            for attachment in extraAttachments {
+                guard let url = attachment.realURL, !referenced.contains(url) else { continue }
+                if attachment.isImage {
+                    blocks.append(.image(PostImage(url: url, displayWidth: nil, displayHeight: nil)))
+                } else {
+                    blocks.append(.fileAttachment(PostFileAttachment(
+                        name: attachment.filename ?? url.lastPathComponent,
+                        url: url,
+                        sizeText: attachment.filesize > 0 ? formattedSize(attachment.filesize) : nil
+                    )))
+                }
             }
         }
         return blocks
@@ -195,19 +206,6 @@ enum BlockSplitter {
         let text = (try? element.text()) ?? ""
         let size = text.split(separator: ",").last.map { $0.trimmingCharacters(in: .whitespaces) }
         return PostFileAttachment(name: name.isEmpty ? url.lastPathComponent : name, url: url, sizeText: size)
-    }
-
-    static func fileAttachments(from attachments: [Int: PostAttachment]) -> [PostFileAttachment] {
-        attachments.values
-            .filter { !$0.isImage }
-            .compactMap { attachment in
-                guard let url = attachment.realURL else { return nil }
-                return PostFileAttachment(
-                    name: attachment.filename ?? url.lastPathComponent,
-                    url: url,
-                    sizeText: formattedSize(attachment.filesize)
-                )
-            }
     }
 
     private static func formattedSize(_ bytes: Int) -> String? {

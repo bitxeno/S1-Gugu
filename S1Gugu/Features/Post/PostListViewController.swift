@@ -492,7 +492,8 @@ final class PostListViewController: UIViewController {
             var blocksMap: [Int: [PostBlock]] = [:]
             var images: [PostImage] = []
             for post in posts {
-                let extras = BlockSplitter.fileAttachments(from: post.attachments)
+                // 全部附件(含图片附件)交给拆分器:移动 API 游客态不内嵌附件图,补到块尾
+                let extras = post.attachments.sorted(by: { $0.key < $1.key }).map(\.value)
                 let blocks = BlockSplitter.split(
                     html: post.preprocessedHTML,
                     baseURL: baseURL,

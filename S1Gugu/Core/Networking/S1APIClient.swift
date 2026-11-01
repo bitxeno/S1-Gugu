@@ -158,3 +158,46 @@ extension CharacterSet {
         return set
     }()
 }
+
+// MARK: - 图片请求头
+
+import Kingfisher
+import OSLog
+
+private let imageRequestLogger = Logger(subsystem: "app.bitxeno.s1gugu", category: "image")
+
+/// S1 图床/附件图对站外直链有校验:图片请求统一携带站内 Referer,
+/// 并手动补上论坛域的登录 Cookie——图床(img.stage1st.com)与论坛
+/// (www.saraba1st.com)不同域,HTTPCookieStorage 按域匹配不会自动携带,
+/// 不带 Cookie 附件图一律 403。全局经 Kingfisher defaultOptions 生效。
+struct S1ImageRequestModifier: ImageDownloadRequestModifier {
+
+    private static let forumURL = URL(string: "https://www.saraba1st.com/2b/")
+
+    private static func cookieHeader(for requestURL: URL?) -> String {
+        let storage = HTTPCookieStorage.shared
+        var cookies: [HTTPCookie] = []
+        if let requestURL {
+            cookies += storage.cookies(for: requestURL) ?? []
+        }
+        if let forumURL {
+            cookies += storage.cookies(for: forumURL) ?? []
+        }
+        var seen = Set<String>()
+        var parts: [String] = []
+        for cookie in cookies where seen.insert(cookie.name).inserted {
+            parts.append("\(cookie.name)=\(cookie.value ?? "")")
+        }
+        return parts.joined(separator: "; ")
+    }
+
+    func modified(for request: URLRequest) -> URLRequest? {
+        var request = request
+        request.setValue("https://www.saraba1st.com/2b/", forHTTPHeaderField: "Referer")
+        let header = Self.cookieHeader(for: request.url)
+        if !header.isEmpty {
+            request.setValue(header, forHTTPHeaderField: "Cookie")
+        }
+        return request
+    }
+}

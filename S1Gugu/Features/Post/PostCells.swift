@@ -1,5 +1,6 @@
 import UIKit
 import Kingfisher
+import OSLog
 import SnapKit
 
 // MARK: - 楼层头
@@ -206,13 +207,22 @@ final class TextBlockCell: UICollectionViewCell, UITextViewDelegate {
 
 final class ImageBlockCell: UICollectionViewCell {
 
+    private static let imageLogger = Logger(subsystem: "app.bitxeno.s1gugu", category: "image")
+
     private let imageView = UIImageView()
-    private let overlayLabel = UILabel()
+    private let progressIndicator = UIActivityIndicatorView(style: .medium)
+    private let statusView = UIView()
+    private let statusIcon = UIImageView()
+    private let statusLabel = UILabel()
+
+    private enum LoadPhase { case idle, loading, loaded, failed, pendingUserLoad }
+    private var phase: LoadPhase = .idle
 
     private var widthConstraint: NSLayoutConstraint?
     private var heightConstraint: NSLayoutConstraint?
     private var postImage: PostImage?
-    private var isPendingUserLoad = false
+    /// configure 计算的占位尺寸(HTML 宽高或估算),重试时恢复
+    private var preferredSize: CGSize = CGSize(width: 300, height: 160)
 
     var onTap: ((PostImage) -> Void)?
 
@@ -225,24 +235,42 @@ final class ImageBlockCell: UICollectionViewCell {
         imageView.isUserInteractionEnabled = true
         imageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(imageTapped)))
 
-        overlayLabel.font = .preferredFont(forTextStyle: .footnote)
-        overlayLabel.textColor = .white
-        overlayLabel.backgroundColor = UIColor.black.withAlphaComponent(0.55)
-        overlayLabel.textAlignment = .center
-        overlayLabel.layer.cornerRadius = 6
-        overlayLabel.clipsToBounds = true
-        overlayLabel.isHidden = true
+        statusView.backgroundColor = .secondarySystemFill
+        statusView.layer.cornerRadius = 8
+        statusView.isHidden = true
+        statusIcon.contentMode = .scaleAspectFit
+        statusIcon.tintColor = Theme.secondaryLabel
+        statusIcon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title3)
+        statusLabel.font = .preferredFont(forTextStyle: .footnote)
+        statusLabel.textColor = Theme.secondaryLabel
+        statusLabel.textAlignment = .center
+        statusLabel.numberOfLines = 2
+        statusLabel.adjustsFontForContentSizeCategory = true
+
+        let statusStack = UIStackView(arrangedSubviews: [statusIcon, statusLabel])
+        statusStack.axis = .vertical
+        statusStack.alignment = .center
+        statusStack.spacing = 6
+        statusView.addSubview(statusStack)
 
         contentView.addSubview(imageView)
-        contentView.addSubview(overlayLabel)
+        contentView.addSubview(statusView)
+        contentView.addSubview(progressIndicator)
         imageView.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
             make.top.equalToSuperview().inset(4)
             make.bottom.equalToSuperview().inset(4)
         }
-        overlayLabel.snp.makeConstraints { make in
+        statusView.snp.makeConstraints { make in
+            make.edges.equalTo(imageView)
+        }
+        statusStack.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.height.greaterThanOrEqualTo(28)
+            make.leading.greaterThanOrEqualToSuperview().inset(12)
+            make.trailing.lessThanOrEqualToSuperview().inset(12)
+        }
+        progressIndicator.snp.makeConstraints { make in
+            make.center.equalTo(imageView)
         }
     }
 
@@ -252,18 +280,24 @@ final class ImageBlockCell: UICollectionViewCell {
 
     @objc private func imageTapped() {
         guard let postImage else { return }
-        if isPendingUserLoad {
-            isPendingUserLoad = false
-            overlayLabel.isHidden = true
-            loadImage(postImage)
-            return
+        switch phase {
+        case .pendingUserLoad, .failed:
+            // 蜂窝网络待加载 / 加载失败:点击重新加载
+            startLoad()
+        case .loaded:
+            onTap?(postImage)
+        case .idle, .loading:
+            break
         }
-        onTap?(postImage)
     }
 
     func configure(_ postImage: PostImage, index: Int, onTap: @escaping (PostImage) -> Void) {
         self.postImage = postImage
         self.onTap = onTap
+        phase = .idle
+        progressIndicator.stopAnimating()
+        imageView.image = nil
+        statusView.isHidden = true
 
         // 显示尺寸上限 = 原始宽(HTML 属性/加载后像素),不放大,居中(对齐 S1-Next)
         let available = UIScreen.main.bounds.width - 32
@@ -277,17 +311,77 @@ final class ImageBlockCell: UICollectionViewCell {
         } else {
             targetHeight = 160
         }
+        preferredSize = CGSize(width: targetWidth, height: targetHeight)
         updateSize(width: targetWidth, height: targetHeight)
 
         let blocked = AppSettings.wifiOnlyImages && NetworkMonitor.shared.isExpensive
         if blocked {
-            isPendingUserLoad = true
-            overlayLabel.isHidden = false
-            overlayLabel.text = "当前为蜂窝网络\n点击加载图片"
-            overlayLabel.numberOfLines = 2
+            phase = .pendingUserLoad
+            showStatus(icon: "icloud.and.arrow.down", text: "蜂窝网络已暂停加载\n点击加载")
             return
         }
-        loadImage(postImage)
+        startLoad()
+    }
+
+    /// 失败/蜂窝占位:图标 + 说明,压成紧凑卡片高度,避免大图占位留下一片空白
+    private func showStatus(icon name: String, text: String) {
+        statusIcon.image = UIImage(systemName: name)
+        statusLabel.text = text
+        statusView.isHidden = false
+        progressIndicator.stopAnimating()
+        updateSize(width: preferredSize.width, height: 96)
+        invalidateCellHeight()
+    }
+
+    private func startLoad() {
+        guard let postImage else { return }
+        phase = .loading
+        statusView.isHidden = true
+        progressIndicator.startAnimating()
+        updateSize(width: preferredSize.width, height: preferredSize.height)
+        invalidateCellHeight()
+        let maxWidth = UIScreen.main.bounds.width
+        let processor = DownsamplingImageProcessor(size: CGSize(width: maxWidth * UIScreen.main.scale, height: 2400))
+        imageView.kf.setImage(
+            with: postImage.url,
+            options: [
+                .processor(processor),
+                .transition(.fade(0.2)),
+                .cacheOriginalImage,
+                // 大图边下边显示(渐进式 JPEG),弱网下不用等完整文件
+                .progressiveJPEG(ImageProgressive()),
+            ],
+            completionHandler: { [weak self] result in
+                guard let self, self.postImage?.url == postImage.url, self.phase == .loading else { return }
+                self.progressIndicator.stopAnimating()
+                switch result {
+                case .success(let value):
+                    self.phase = .loaded
+                    self.applySize(ofNativeImage: value.image)
+                case .failure(let error):
+                    // 复用/刷新取消的请求不算失败
+                    guard error.isTaskCancelled == false else { return }
+                    Self.imageLogger.error("图片加载失败 \(self.postImage?.url.absoluteString ?? "-", privacy: .public): \(String(describing: error), privacy: .public)")
+                    self.phase = .failed
+                    self.showStatus(icon: "photo.badge.exclamationmark", text: "图片加载失败\n点击重试")
+                }
+            }
+        )
+    }
+
+    private func invalidateCellHeight() {
+        (superview as? UICollectionView)?.collectionViewLayout.invalidateLayout()
+    }
+
+    private func applySize(ofNativeImage image: UIImage) {
+        let available = UIScreen.main.bounds.width - 32
+        // 原始像素宽 = 显示宽上限,小图(表情)不放大
+        let nativeWidth = image.size.width * image.scale
+        let nativeHeight = image.size.height * image.scale
+        let width = min(available, nativeWidth)
+        let height = min(width * nativeHeight / max(nativeWidth, 1), available * 2.5)
+        updateSize(width: width, height: height)
+        invalidateCellHeight()
     }
 
     private func updateSize(width: CGFloat, height: CGFloat) {
@@ -301,26 +395,6 @@ final class ImageBlockCell: UICollectionViewCell {
         h.isActive = true
         widthConstraint = w
         heightConstraint = h
-    }
-
-    private func loadImage(_ postImage: PostImage) {
-        let maxWidth = UIScreen.main.bounds.width
-        let processor = DownsamplingImageProcessor(size: CGSize(width: maxWidth * UIScreen.main.scale, height: 2400))
-        imageView.kf.setImage(
-            with: postImage.url,
-            options: [.processor(processor), .transition(.fade(0.2)), .cacheOriginalImage],
-            completionHandler: { [weak self] result in
-                guard let self, let image = try? result.get().image else { return }
-                let available = UIScreen.main.bounds.width - 32
-                // 原始像素宽 = 显示宽上限,小图(表情)不放大
-                let nativeWidth = image.size.width * image.scale
-                let nativeHeight = image.size.height * image.scale
-                let width = min(available, nativeWidth)
-                let height = min(width * nativeHeight / max(nativeWidth, 1), available * 2.5)
-                self.updateSize(width: width, height: height)
-                (self.superview as? UICollectionView)?.collectionViewLayout.invalidateLayout()
-            }
-        )
     }
 }
 

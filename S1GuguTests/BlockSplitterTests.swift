@@ -1,4 +1,5 @@
 import XCTest
+import SwiftyJSON
 @testable import S1Gugu
 
 final class BlockSplitterTests: XCTestCase {
@@ -94,5 +95,40 @@ final class BlockSplitterTests: XCTestCase {
         XCTAssertTrue(attributed.value.string.contains("发出来给大家一起蹬"))
         XCTAssertTrue(attributed.value.string.contains("\u{FFFC}"))
         XCTAssertTrue(attributed.value.string.contains("哈哈"))
+    }
+
+    func testImageAttachmentsAppendAsImageBlocks() {
+        // 移动 API 游客态不内嵌附件图:图片/文件附件应补为块尾的图片块与附件块
+        let imageJSON = JSON([
+            "url": "https://stage1st.com/2b/forum.php?mod=image",
+            "attachment": "&aid=88&size=300",
+            "isimage": "1",
+            "filename": "a.jpg",
+            "filesize": 1024,
+            "ext": "jpg",
+        ])
+        let fileJSON = JSON([
+            "url": "https://stage1st.com/2b/forum.php?mod=attachment",
+            "attachment": "&aid=99",
+            "isimage": "0",
+            "filename": "doc.pdf",
+            "filesize": 2048,
+            "ext": "pdf",
+        ])
+        let blocks = BlockSplitter.split(
+            html: "<p>正文</p>",
+            baseURL: nil,
+            extraAttachments: [PostAttachment(json: imageJSON), PostAttachment(json: fileJSON)]
+        )
+        XCTAssertEqual(blocks.count, 3, "文本 + 图片附件 + 文件附件,实际:\(blocks)")
+        guard blocks.count == 3 else { return }
+        guard case let .image(image) = blocks[1] else {
+            return XCTFail("第 2 块应为图片块,实际:\(blocks)")
+        }
+        XCTAssertEqual(image.url.absoluteString, "https://stage1st.com/2b/forum.php?mod=image&aid=88&size=300")
+        guard case let .fileAttachment(file) = blocks[2] else {
+            return XCTFail("第 3 块应为附件块,实际:\(blocks)")
+        }
+        XCTAssertEqual(file.name, "doc.pdf")
     }
 }
