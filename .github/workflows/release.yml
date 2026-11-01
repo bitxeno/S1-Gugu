@@ -82,28 +82,34 @@ jobs:
           set -euo pipefail
           mkdir -p build/altsource
 
-          # 以仓库根目录的 source.json 为底稿(缺失时从空 source 起步)
-          if [[ -s source.json ]]; then
-            cp source.json build/altsource/source.json
-          else
-            jq -n '{
-              name: "S1 Gugu",
-              identifier: "app.bitxeno.s1gugu.source",
-              subtitle: "S1 Gugu builds.",
-              description: "S1 Gugu, an iOS client for the Stage1st forum. Builds come straight from https://github.com/bitxeno/S1-Gugu/releases.",
-              website: "https://github.com/bitxeno/S1-Gugu",
-              tintColor: "#00B0FF",
-              apps: [{
+          # 以专用 AltSource release 上的 source.json 为底稿,缺失时从仓库种子起步
+          if gh release view AltSource --repo "$REPO" > /dev/null 2>&1; then
+            gh release download AltSource --repo "$REPO" --pattern 'source.json' \
+              --output build/altsource/source.json --clobber || true
+          fi
+          if [[ ! -s build/altsource/source.json ]]; then
+            if [[ -s source.json ]]; then
+              cp source.json build/altsource/source.json
+            else
+              jq -n '{
                 name: "S1 Gugu",
-                bundleIdentifier: "app.bitxeno.S1Gugu",
-                developerName: "bitxeno",
-                subtitle: "Stage1st forum iOS client",
-                localizedDescription: "S1 Gugu, an iOS client for the Stage1st forum (bbs.saraba1st.com).",
-                minOSVersion: "17.0",
-                versions: []
-              }],
-              news: []
-            }' > build/altsource/source.json
+                identifier: "app.bitxeno.s1gugu.source",
+                subtitle: "S1 Gugu builds.",
+                description: "S1 Gugu, an iOS client for the Stage1st forum. Builds come straight from https://github.com/bitxeno/S1-Gugu/releases.",
+                website: "https://github.com/bitxeno/S1-Gugu",
+                tintColor: "#00B0FF",
+                apps: [{
+                  name: "S1 Gugu",
+                  bundleIdentifier: "app.bitxeno.S1Gugu",
+                  developerName: "bitxeno",
+                  subtitle: "Stage1st forum iOS client",
+                  localizedDescription: "S1 Gugu, an iOS client for the Stage1st forum (bbs.saraba1st.com).",
+                  minOSVersion: "17.0",
+                  versions: []
+                }],
+                news: []
+              }' > build/altsource/source.json
+            fi
           fi
 
           # 版本条目:下载地址指向同 tag 的 IPA 资产
@@ -126,11 +132,11 @@ jobs:
           ' build/altsource/source.json > build/altsource/source.new.json
           mv build/altsource/source.new.json build/altsource/source.json
 
-          # 通过 Contents API 提交回 main(转 public 后即可用 raw URL 供 AltStore 订阅)
-          jq -c . build/altsource/source.json > build/altsource/source.min.json
-          SHA=$(gh api "repos/${REPO}/contents/source.json?ref=main" --jq '.sha // empty' 2>/dev/null) || SHA=""
-          ARGS=(--method PUT --field message "chore: update AltStore source for ${TAG}" \
-                --field content "$(base64 -i build/altsource/source.min.json)")
-          [[ -n "$SHA" ]] && ARGS+=(--field sha "$SHA")
-          gh api "repos/${REPO}/contents/source.json" "${ARGS[@]}" > /dev/null
-          echo "source.json committed to main for ${TAG}"
+          # 专用 release 不存在则创建,然后替换其中的 source.json 资产
+          if ! gh release view AltSource --repo "$REPO" > /dev/null 2>&1; then
+            gh release create AltSource --repo "$REPO" \
+              --title "AltStore Source" \
+              --notes "Stable URL for AltStore/SideStore source.json. Content is regenerated on every app release; do not edit."
+          fi
+          gh release upload AltSource --repo "$REPO" build/altsource/source.json --clobber
+          echo "source.json uploaded to AltSource release for ${TAG}"
