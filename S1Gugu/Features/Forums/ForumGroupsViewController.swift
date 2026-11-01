@@ -207,6 +207,11 @@ extension ForumGroupsViewController: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
+        // 编辑模式(拖动排序)下点击行 = 退出排序模式,不进版块
+        if tableView.isEditing {
+            setEditingMode(false)
+            return
+        }
         guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
         let forum: Forum
         switch item {
@@ -218,7 +223,95 @@ extension ForumGroupsViewController: UITableViewDelegate {
         navigationController?.pushViewController(ThreadListViewController(forum: forum), animated: true)
     }
 
-    // MARK: 拖动排序(仅收藏区块,长按拖动,无需编辑模式)
+    // MARK: 收藏区块:拖动排序模式 + 左滑删除
+
+    /// 长按进入/点击退出的拖动排序模式(仅收藏区块)
+    func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        guard dataSource.sectionIdentifier(for: indexPath.section) == Section.favorites,
+              case .favorite = dataSource.itemIdentifier(for: indexPath) else { return nil }
+        return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
+            UIMenu(children: [
+                UIAction(title: "调整排序", image: UIImage(systemName: "arrow.up.arrow.down")) { [weak self] _ in
+                    self?.setEditingMode(true)
+                },
+                UIAction(title: "取消收藏", image: UIImage(systemName: "star.slash"), attributes: .destructive) { [weak self] _ in
+                    self?.removeFavorite(at: indexPath)
+                },
+            ])
+        })
+    }
+
+    /// 编辑模式下隐藏删除圆钮(删除走左滑),仅保留拖动手柄
+    func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+        dataSource.sectionIdentifier(for: indexPath.section) == Section.favorites ? .none : .delete
+    }
+
+    func tableView(_ tableView: UITableView, shouldIndentWhileEditingRowAt indexPath: IndexPath) -> Bool {
+        false
+    }
+
+    /// 收藏行左滑删除
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard dataSource.sectionIdentifier(for: indexPath.section) == Section.favorites,
+              case let .favorite(entry)? = dataSource.itemIdentifier(for: indexPath) else { return nil }
+        let delete = UIContextualAction(style: .destructive, title: "取消收藏") { [weak self] _, _, completion in
+            self?.removeFavoriteEntry(entry)
+            completion(true)
+        }
+        return UISwipeActionsConfiguration(actions: [delete])
+    }
+
+    private func setEditingMode(_ editing: Bool) {
+        guard let tableView else { return }
+        tableView.setEditing(editing, animated: true)
+        // 编辑中右上角变「完成」;平时恢复搜索按钮(排序入口在收藏行长按菜单里)
+        if editing {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(
+                title: "完成",
+                primaryAction: UIAction { [weak self] _ in
+                    self?.setEditingMode(false)
+                }
+            )
+        } else {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(primaryAction: UIAction(
+                title: "搜索",
+                image: UIImage(systemName: "magnifyingglass")
+            ) { [weak self] _ in
+                self?.navigationController?.pushViewController(SearchViewController(), animated: true)
+            })
+        }
+    }
+
+    private func removeFavorite(at indexPath: IndexPath) {
+        guard case let .favorite(entry)? = dataSource.itemIdentifier(for: indexPath) else { return }
+        removeFavoriteEntry(entry)
+    }
+
+    private func removeFavoriteEntry(_ entry: ForumFavoriteEntry) {
+        Task { [weak self] in
+            _ = try? await AppDatabase.shared.write { database in
+                try ForumFavoriteEntry.find(entry.forumId).delete().execute(database)
+            }
+            guard let self else { return }
+            // 编辑模式中删空收藏则整体退出;否则只重渲染收藏区块
+            if tableView.isEditing, await ForumFavoriteService.entries().isEmpty {
+                setEditingMode(false)
+            }
+            let snapshot = dataSource.snapshot()
+            let sections = snapshot.sectionIdentifiers
+                .filter { $0 != Section.favorites }
+                .compactMap { id -> ForumSection? in
+                    guard id != Section.favorites else { return nil }
+                    let items = snapshot.itemIdentifiers(inSection: id).compactMap {
+                        if case let .forum(forum) = $0 { return forum } else { return nil }
+                    }
+                    guard !items.isEmpty else { return nil }
+                    return ForumSection(id: id, categoryName: id, forums: items)
+                }
+            await renderWithFavorites(sections)
+            Toast.show("已取消收藏「\(entry.name)」", in: view)
+        }
+    }
 
     func tableView(_ tableView: UITableView, itemsForBeginning session: UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
         guard dataSource.sectionIdentifier(for: indexPath.section) == Section.favorites,
