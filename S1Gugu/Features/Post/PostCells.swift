@@ -28,6 +28,10 @@ final class PostHeaderCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        // 详情页左右统一 16pt(列表为 .insetGrouped 默认 16pt,plain 列表默认仅 8pt)
+        contentView.directionalLayoutMargins = NSDirectionalEdgeInsets(
+            top: 0, leading: Theme.contentInset, bottom: 0, trailing: Theme.contentInset
+        )
 
         avatarView.contentMode = .scaleAspectFill
         avatarView.layer.cornerRadius = 20
@@ -146,6 +150,9 @@ final class TextBlockCell: UICollectionViewCell, UITextViewDelegate {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        contentView.directionalLayoutMargins = NSDirectionalEdgeInsets(
+            top: 0, leading: Theme.contentInset, bottom: 0, trailing: Theme.contentInset
+        )
         textView.isScrollEnabled = false
         textView.isEditable = false
         textView.isSelectable = true
@@ -311,7 +318,7 @@ final class ImageBlockCell: UICollectionViewCell {
 
         // 显示尺寸:优先用已记录的真实像素比例,其次 HTML width/height,最后退化估算。
         // 真实比例可让占位高度与最终显示高度一致,图片落地后不再触发高度变化。
-        let available = UIScreen.main.bounds.width - 32
+        let available = UIScreen.main.bounds.width - Theme.contentInset * 2
         let measured = ImageDimensionStore.shared.size(for: postImage.url)
         let aspect = measured.map { $0.width / max($0.height, 1) } ?? postImage.aspectRatio
         let targetWidth: CGFloat
@@ -398,7 +405,7 @@ final class ImageBlockCell: UICollectionViewCell {
     }
 
     private func applySize(ofNativeImage image: UIImage) {
-        let available = UIScreen.main.bounds.width - 32
+        let available = UIScreen.main.bounds.width - Theme.contentInset * 2
         // 原始像素宽 = 显示宽上限,小图(表情)不放大
         let nativeWidth = image.size.width * image.scale
         let nativeHeight = image.size.height * image.scale
@@ -445,6 +452,9 @@ final class QuoteBlockCell: UICollectionViewCell, UITextViewDelegate {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        contentView.directionalLayoutMargins = NSDirectionalEdgeInsets(
+            top: 0, leading: Theme.contentInset, bottom: 0, trailing: Theme.contentInset
+        )
 
         barView.backgroundColor = Theme.accent.withAlphaComponent(0.6)
         barView.layer.cornerRadius = 1.5
@@ -520,6 +530,9 @@ final class CodeBlockCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        contentView.directionalLayoutMargins = NSDirectionalEdgeInsets(
+            top: 0, leading: Theme.contentInset, bottom: 0, trailing: Theme.contentInset
+        )
 
         let codeFont: UIFont = {
             let metrics = UIFontMetrics(forTextStyle: .footnote)
@@ -579,6 +592,9 @@ final class FileAttachmentCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        contentView.directionalLayoutMargins = NSDirectionalEdgeInsets(
+            top: 0, leading: Theme.contentInset, bottom: 0, trailing: Theme.contentInset
+        )
 
         iconView.image = UIImage(systemName: "doc")
         iconView.tintColor = Theme.accent

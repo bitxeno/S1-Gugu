@@ -163,6 +163,9 @@ final class PostListViewController: UIViewController {
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         collectionView.backgroundColor = Theme.contentBackground
+        // 底部留白:让最后一楼可以上滑离开底部功能栏,不贴着 pager bar
+        collectionView.contentInset.bottom = 96
+        collectionView.verticalScrollIndicatorInsets.bottom = 96
         collectionView.delegate = self
 
         let headerRegistration = UICollectionView.CellRegistration<PostHeaderCell, PostHeaderModel> { [weak self] cell, _, model in
