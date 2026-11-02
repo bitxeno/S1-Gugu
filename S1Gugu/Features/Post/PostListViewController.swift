@@ -39,6 +39,7 @@ final class PostListViewController: UIViewController {
     private var didRecordHistory = false
     private let quickSideBar = QuickSideBarView(frame: .zero)
     private let sideBarBubble = UILabel()
+    private let pagerBar = PostPagerBar()
 
     init(threadId: Int, threadTitle: String, jumpPage: Int? = nil, anchorPid: Int? = nil) {
         self.threadId = threadId
@@ -46,6 +47,8 @@ final class PostListViewController: UIViewController {
         self.initialPage = jumpPage
         self.initialAnchorPid = anchorPid
         super.init(nibName: nil, bundle: nil)
+        // 帖子详情沉浸阅读:隐藏全局 TabBar,改用底部功能栏(导航栏保留)
+        hidesBottomBarWhenPushed = true
     }
 
     required init?(coder: NSCoder) {
@@ -58,15 +61,9 @@ final class PostListViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = Theme.contentBackground
         navigationItem.title = threadTitle
+        setupPagerBar()
         setupCollectionView()
         setupPageNavigation()
-        navigationItem.leftItemsSupplementBackButton = true
-        navigationItem.leftBarButtonItem = UIBarButtonItem(primaryAction: UIAction(
-            title: "回复",
-            image: UIImage(systemName: "arrowshape.turn.up.left")
-        ) { [weak self] _ in
-            self?.openReply(quotePost: nil)
-        })
         NotificationCenter.default.addObserver(
             self, selector: #selector(postDidChange),
             name: .postDidChange, object: nil
@@ -97,7 +94,7 @@ final class PostListViewController: UIViewController {
         quickSideBar.snp.makeConstraints { make in
             make.trailing.equalToSuperview()
             make.top.equalTo(view.safeAreaLayoutGuide).offset(24)
-            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-24)
+            make.bottom.equalTo(pagerBar.snp.top).offset(-24)
             make.width.equalTo(20)
         }
         quickSideBar.onIndexChange = { [weak self] index in
@@ -238,14 +235,21 @@ final class PostListViewController: UIViewController {
         }
 
         view.addSubview(collectionView)
+        collectionView.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide)
+            make.leading.trailing.equalToSuperview()
+            make.bottom.equalTo(pagerBar.snp.top)
+        }
         placeholder.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(placeholder)
         NSLayoutConstraint.activate([
-            placeholder.topAnchor.constraint(equalTo: view.topAnchor),
-            placeholder.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            placeholder.topAnchor.constraint(equalTo: collectionView.topAnchor),
+            placeholder.bottomAnchor.constraint(equalTo: collectionView.bottomAnchor),
             placeholder.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             placeholder.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
+        // 底部功能栏需始终浮在列表/占位之上
+        view.bringSubviewToFront(pagerBar)
     }
 
     private func makeSectionLayout(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
@@ -263,22 +267,52 @@ final class PostListViewController: UIViewController {
         )
     }
 
+    private func setupPagerBar() {
+        view.addSubview(pagerBar)
+        pagerBar.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+            make.bottom.equalToSuperview()
+        }
+        pagerBar.onPrevious = { [weak self] in
+            guard let self, let target = PostPagerState(currentPage: self.currentPage, pageCount: self.pageCount).previousTarget else { return }
+            self.jumpToPage(target)
+        }
+        pagerBar.onNext = { [weak self] in
+            guard let self, let target = PostPagerState(currentPage: self.currentPage, pageCount: self.pageCount).nextTarget else { return }
+            self.jumpToPage(target)
+        }
+        pagerBar.onProgress = { [weak self] in
+            self?.presentPageJumpSheet()
+        }
+        pagerBar.onReply = { [weak self] in
+            self?.openReply(quotePost: nil)
+        }
+        pagerBar.onShare = { [weak self] in
+            self?.shareCurrentPage()
+        }
+    }
+
+    private func refreshPagerBar() {
+        pagerBar.update(currentPage: currentPage, pageCount: pageCount)
+    }
+
+    private func presentPageJumpSheet() {
+        guard pageCount >= 1, currentPage >= 1 else { return }
+        let sheet = PageJumpSheetViewController(total: pageCount, current: currentPage) { [weak self] page in
+            self?.jumpToPage(page)
+        }
+        present(sheet, animated: true)
+    }
+
+    private func shareCurrentPage() {
+        let url = LinkRouter.threadURL(tid: threadId, page: max(currentPage, 1))
+        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        activity.popoverPresentationController?.sourceView = pagerBar
+        present(activity, animated: true)
+    }
+
     private func makeMenu() -> UIMenu {
         var actions: [UIAction] = []
-        if currentPage > 1 {
-            actions.append(UIAction(title: "上一页", image: UIImage(systemName: "chevron.left")) { [weak self] _ in
-                let previous = max((self?.currentPage ?? 1) - 1, 1)
-                self?.jumpToPage(previous)
-            })
-        }
-        if currentPage > 0, currentPage < pageCount {
-            actions.append(UIAction(title: "下一页", image: UIImage(systemName: "chevron.right")) { [weak self] _ in
-                self?.jumpToPage((self?.currentPage ?? 0) + 1)
-            })
-        }
-        actions.append(UIAction(title: "跳页…", image: UIImage(systemName: "arrow.right.to.line")) { [weak self] _ in
-            self?.showJumpAlert()
-        })
         actions.append(UIAction(title: "收藏本帖", image: UIImage(systemName: "star")) { [weak self] _ in
             self?.addFavorite()
         })
@@ -302,22 +336,6 @@ final class PostListViewController: UIViewController {
             LinkRouter.handle(LinkRouter.threadURL(tid: self.threadId, page: max(self.currentPage, 1)), from: self)
         })
         return UIMenu(children: actions)
-    }
-
-    private func showJumpAlert() {
-        let alert = UIAlertController(title: "跳页", message: "共 \(pageCount) 页", preferredStyle: .alert)
-        alert.addTextField { field in
-            field.placeholder = "页码 (1-\(self.pageCount))"
-            field.keyboardType = .numberPad
-        }
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(UIAlertAction(title: "跳转", style: .default) { [weak self] _ in
-            guard let text = alert.textFields?.first?.text,
-                  let page = Int(text), page >= 1, page <= (self?.pageCount ?? 1)
-            else { return }
-            self?.jumpToPage(page)
-        })
-        present(alert, animated: true)
     }
 
     // MARK: - Data
@@ -550,6 +568,7 @@ final class PostListViewController: UIViewController {
     private func updateTitleView() {
         title = "\(threadTitle)(\(currentPage)/\(pageCount))"
         navigationItem.rightBarButtonItem?.menu = makeMenu()
+        refreshPagerBar()
     }
 
     private func renderError(_ error: Error) {

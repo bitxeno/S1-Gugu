@@ -78,6 +78,40 @@ enum Theme {
         )
     }
 
+    /// 帖子详情底部功能栏图标色:奶黄浅色为黄绿(对齐 S1-Next),其余用 accent
+    static var postToolbarTint: UIColor {
+        resolved(light: accent, dark: accent, custardLight: UIColor(hex: 0xA8BB0D))
+    }
+
+    /// 帖子详情「当前页进度」胶囊轨道色(未填充部分):奶黄浅色为橄榄黄绿,其余用 accent
+    static var postPagerPill: UIColor {
+        resolved(light: accent, dark: accent, custardLight: UIColor(hex: 0xB5C11A))
+    }
+
+    /// 帖子详情「当前页进度」胶囊进度填充色(已读部分,比轨道更深):奶黄浅色为深橄榄,其余用 accent 加深
+    static var postPagerPillFill: UIColor {
+        UIColor { trait in
+            if trait.userInterfaceStyle != .dark, AppSettings.lightTheme == .custard {
+                return UIColor(hex: 0xA4AC1B)
+            }
+            return Theme.accent.resolvedColor(with: trait)
+        }
+    }
+
+    /// 选择页面弹窗:标题与选中页码的深藏青色(奶黄浅色);其余跟随系统标签色
+    static var postPickerText: UIColor {
+        resolved(light: .label, dark: .label, custardLight: UIColor(hex: 0x1F3857))
+    }
+
+    /// 底部功能栏禁用态图标:奶黄浅色为浅灰,其余跟随系统
+    static var postToolbarDisabled: UIColor {
+        resolved(
+            light: .tertiaryLabel,
+            dark: .tertiaryLabel,
+            custardLight: UIColor(hex: 0xB4B5AA)
+        )
+    }
+
     /// 标签栏选中项:奶黄浅色为白(深奶茶底),其余用 accent
     static var tabBarSelected: UIColor {
         resolved(light: accent, dark: accent, custardLight: .white)
