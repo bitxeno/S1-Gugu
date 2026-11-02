@@ -355,6 +355,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
             return
         }
         ImageCache.default.clearDiskCache { [weak self] in
+            ImageDimensionStore.shared.clear()
             Task { @MainActor in
                 Toast.show("图片缓存已清除", in: self?.view ?? UIView())
                 self?.refreshCacheSize()

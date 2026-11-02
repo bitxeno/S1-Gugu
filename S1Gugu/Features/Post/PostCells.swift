@@ -228,6 +228,8 @@ final class ImageBlockCell: UICollectionViewCell {
 
     private var widthConstraint: NSLayoutConstraint?
     private var heightConstraint: NSLayoutConstraint?
+    /// 当前已应用的尺寸,用于跳过无变化的约束重建
+    private var appliedSize: CGSize?
     private var postImage: PostImage?
     /// configure 计算的占位尺寸(HTML 宽高或估算),重试时恢复
     private var preferredSize: CGSize = CGSize(width: 300, height: 160)
@@ -307,20 +309,29 @@ final class ImageBlockCell: UICollectionViewCell {
         imageView.image = nil
         statusView.isHidden = true
 
-        // 显示尺寸上限 = 原始宽(HTML 属性/加载后像素),不放大,居中(对齐 S1-Next)
+        // 显示尺寸:优先用已记录的真实像素比例,其次 HTML width/height,最后退化估算。
+        // 真实比例可让占位高度与最终显示高度一致,图片落地后不再触发高度变化。
         let available = UIScreen.main.bounds.width - 32
-        let originalWidth = postImage.displayWidth.map(CGFloat.init)
-        let targetWidth = min(available, originalWidth ?? available)
+        let measured = ImageDimensionStore.shared.size(for: postImage.url)
+        let aspect = measured.map { $0.width / max($0.height, 1) } ?? postImage.aspectRatio
+        let targetWidth: CGFloat
+        if let measured {
+            targetWidth = min(available, measured.width)
+        } else {
+            targetWidth = min(available, postImage.displayWidth.map(CGFloat.init) ?? available)
+        }
         let targetHeight: CGFloat
-        if let ratio = postImage.aspectRatio, ratio > 0 {
-            targetHeight = targetWidth / ratio
-        } else if let originalWidth {
+        if let aspect, aspect > 0 {
+            targetHeight = targetWidth / aspect
+        } else if let originalWidth = postImage.displayWidth.map(CGFloat.init) {
             targetHeight = originalWidth * 0.75
         } else {
             targetHeight = 160
         }
-        preferredSize = CGSize(width: targetWidth, height: targetHeight)
-        updateSize(width: targetWidth, height: targetHeight)
+        // 与 applySize 的封顶保持一致,否则超高图占位与落地高度不符仍会跳
+        let cappedHeight = min(targetHeight, available * 2.5)
+        preferredSize = CGSize(width: targetWidth, height: cappedHeight)
+        updateSize(width: targetWidth, height: cappedHeight)
 
         let blocked = AppSettings.wifiOnlyImages && NetworkMonitor.shared.isExpensive
         if blocked {
@@ -347,7 +358,6 @@ final class ImageBlockCell: UICollectionViewCell {
         statusView.isHidden = true
         progressIndicator.startAnimating()
         updateSize(width: preferredSize.width, height: preferredSize.height)
-        invalidateCellHeight()
         let maxWidth = UIScreen.main.bounds.width
         let processor = DownsamplingImageProcessor(size: CGSize(width: maxWidth * UIScreen.main.scale, height: 2400))
         imageView.kf.setImage(
@@ -365,6 +375,12 @@ final class ImageBlockCell: UICollectionViewCell {
                 switch result {
                 case .success(let value):
                     self.phase = .loaded
+                    let nativeSize = CGSize(
+                        width: value.image.size.width * value.image.scale,
+                        height: value.image.size.height * value.image.scale
+                    )
+                    // 记录真实像素尺寸,后续滚动到这张图可直接按真实比例占位
+                    ImageDimensionStore.shared.store(size: nativeSize, for: postImage.url)
                     self.applySize(ofNativeImage: value.image)
                 case .failure(let error):
                     // 复用/刷新取消的请求不算失败
@@ -388,21 +404,32 @@ final class ImageBlockCell: UICollectionViewCell {
         let nativeHeight = image.size.height * image.scale
         let width = min(available, nativeWidth)
         let height = min(width * nativeHeight / max(nativeWidth, 1), available * 2.5)
+        // 高度没变就不动布局(避免每张图落地都触发一次整体重排)
+        guard abs(width - preferredSize.width) > 0.5 || abs(height - preferredSize.height) > 0.5 else { return }
+        preferredSize = CGSize(width: width, height: height)
         updateSize(width: width, height: height)
         invalidateCellHeight()
     }
 
     private func updateSize(width: CGFloat, height: CGFloat) {
+        let w = max(width, 40)
+        let h = max(height, 40)
+        // 尺寸未变就不重建约束,减少复用/重试时的无谓布局
+        if let appliedSize,
+           abs(appliedSize.width - w) <= 0.5, abs(appliedSize.height - h) <= 0.5 {
+            return
+        }
+        appliedSize = CGSize(width: w, height: h)
         widthConstraint?.isActive = false
         heightConstraint?.isActive = false
-        let w = imageView.widthAnchor.constraint(equalToConstant: max(width, 40))
-        let h = imageView.heightAnchor.constraint(equalToConstant: max(height, 40))
-        w.priority = .defaultHigh
-        h.priority = .defaultHigh
-        w.isActive = true
-        h.isActive = true
-        widthConstraint = w
-        heightConstraint = h
+        let wc = imageView.widthAnchor.constraint(equalToConstant: w)
+        let hc = imageView.heightAnchor.constraint(equalToConstant: h)
+        wc.priority = .defaultHigh
+        hc.priority = .defaultHigh
+        wc.isActive = true
+        hc.isActive = true
+        widthConstraint = wc
+        heightConstraint = hc
     }
 }
 
