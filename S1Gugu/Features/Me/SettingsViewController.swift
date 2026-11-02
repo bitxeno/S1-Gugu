@@ -101,7 +101,12 @@ final class SettingsViewController: UIViewController {
         Task { [weak self] in
             let size = (try? await ImageCache.default.diskStorageSize) ?? 0
             guard let self else { return }
-            self.cachedImageSizeText = ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+            let used = ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+            let limit = ByteCountFormatter.string(
+                fromByteCount: Int64(AppDelegate.imageDiskCacheSizeLimit),
+                countStyle: .file
+            )
+            self.cachedImageSizeText = "\(used) / 上限 \(limit)"
             self.tableView?.reloadData()
         }
     }
