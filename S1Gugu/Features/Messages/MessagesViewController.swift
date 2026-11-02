@@ -2,7 +2,7 @@ import UIKit
 import SnapKit
 
 /// Tab 3「消息」:私信 + 通知。顶部文字 Tab(选中加粗 + 下划线)替代导航标题,
-/// 本页隐藏导航栏,push 会话页时恢复;原导航栏「发私信」入口移到头部右侧。
+/// 支持左右滑动切换;本页隐藏导航栏,push 会话页时恢复。
 @MainActor
 final class MessagesViewController: UIViewController {
 
@@ -12,8 +12,19 @@ final class MessagesViewController: UIViewController {
     private let underline = UIView()
     private let composeButton = UIButton(type: .system)
     private let container = UIView()
-    private var pmList: PMListViewController?
-    private var noticeList: NoticeViewController?
+    private let pmList = PMListViewController()
+    private let noticeList = NoticeViewController()
+    private lazy var pages: [UIViewController] = [pmList, noticeList]
+    private lazy var pageController: UIPageViewController = {
+        let controller = UIPageViewController(
+            transitionStyle: .scroll,
+            navigationOrientation: .horizontal
+        )
+        controller.dataSource = self
+        controller.delegate = self
+        controller.view.backgroundColor = .clear
+        return controller
+    }()
 
     private var tabButtons: [UIButton] = []
     private var selectedIndex = 0
@@ -28,7 +39,7 @@ final class MessagesViewController: UIViewController {
         }
         setupHeader()
         setupContainer()
-        showSegment(0)
+        setupPages()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -39,11 +50,6 @@ final class MessagesViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         navigationController?.setNavigationBarHidden(false, animated: animated)
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        positionUnderline()
     }
 
     private func setupHeader() {
@@ -64,6 +70,12 @@ final class MessagesViewController: UIViewController {
             make.bottom.equalToSuperview().inset(12)
         }
 
+        // 下划线先加入 header,renderTabs 里再用约束对齐选中 Tab
+        underline.backgroundColor = Theme.barForeground
+        underline.layer.cornerRadius = 1.5
+        underline.isUserInteractionEnabled = false
+        header.addSubview(underline)
+
         for (index, title) in tabTitles.enumerated() {
             let button = UIButton(type: .system)
             button.tag = index
@@ -81,16 +93,11 @@ final class MessagesViewController: UIViewController {
         }
         renderTabs()
 
-        underline.backgroundColor = Theme.barForeground
-        underline.layer.cornerRadius = 1.5
-        underline.isUserInteractionEnabled = false
-        header.addSubview(underline)
-
         composeButton.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
         composeButton.tintColor = Theme.barForeground
         composeButton.accessibilityLabel = "发私信"
         composeButton.addAction(UIAction { [weak self] _ in
-            self?.pmList?.showNewPM()
+            self?.pmList.showNewPM()
         }, for: .touchUpInside)
         header.addSubview(composeButton)
         composeButton.snp.makeConstraints { make in
@@ -109,73 +116,102 @@ final class MessagesViewController: UIViewController {
     }
 
     private func selectTab(_ index: Int) {
-        guard index != selectedIndex else { return }
+        guard index != selectedIndex, pages.indices.contains(index) else { return }
+        let direction: UIPageViewController.NavigationDirection = index > selectedIndex ? .forward : .reverse
         selectedIndex = index
+        pageController.setViewControllers([pages[index]], direction: direction, animated: true)
+        applyTabState()
+    }
+
+    /// 同步 Tab 高亮/下划线/写信按钮的可见状态
+    private func applyTabState() {
         renderTabs()
-        showSegment(index)
-        composeButton.isEnabled = index == 0
+        composeButton.isEnabled = selectedIndex == 0
         UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
-            self.composeButton.alpha = index == 0 ? 1 : 0
+            self.composeButton.alpha = self.selectedIndex == 0 ? 1 : 0
             self.view.layoutIfNeeded()
         }
     }
 
+    /// 与系统导航标题同款字体:17pt,选中 semibold、未选中 regular,随 Dynamic Type 缩放
+    private func tabFont(selected: Bool) -> UIFont {
+        let base = UIFont.systemFont(ofSize: 17, weight: selected ? .semibold : .regular)
+        return UIFontMetrics(forTextStyle: .headline).scaledFont(for: base)
+    }
+
     /// 选中加粗主色、未选中常规次级色,对齐 S1-Next 顶部 Tab
     private func renderTabs() {
-        let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .title3)
         for (index, button) in tabButtons.enumerated() {
             let selected = index == selectedIndex
-            let styled = descriptor.withSymbolicTraits(selected ? .traitBold : []) ?? descriptor
             var attributed = AttributedString(tabTitles[index])
-            attributed.font = UIFont(descriptor: styled, size: 0)
+            attributed.font = tabFont(selected: selected)
             attributed.foregroundColor = selected ? Theme.barForeground : Theme.secondaryLabel
             var config = button.configuration ?? UIButton.Configuration.plain()
             config.attributedTitle = attributed
             button.configuration = config
             button.accessibilityTraits = selected ? [.button, .selected] : .button
         }
+        updateUnderlineConstraints()
     }
 
-    /// 下划线对齐选中 Tab 的文字宽度,随布局刷新(切换时经 layoutIfNeeded 产生滑动动画)
-    private func positionUnderline() {
+    /// 下划线用约束对齐选中 Tab(跨视图约束由 Auto Layout 换算坐标),
+    /// 切换时结合 layoutIfNeeded 产生滑动动画
+    private func updateUnderlineConstraints() {
         guard tabButtons.indices.contains(selectedIndex) else { return }
         let button = tabButtons[selectedIndex]
-        let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .title3)
-        let bold = descriptor.withSymbolicTraits(.traitBold) ?? descriptor
-        let font = UIFont(descriptor: bold, size: 0)
-        let textSize = (tabTitles[selectedIndex] as NSString).size(withAttributes: [.font: font])
-        let buttonFrame = header.convert(button.bounds, from: button)
-        let textFrame = CGRect(
-            x: buttonFrame.midX - textSize.width / 2,
-            y: buttonFrame.midY - textSize.height / 2,
-            width: textSize.width,
-            height: textSize.height
-        )
-        underline.frame = CGRect(x: textFrame.minX - 2, y: textFrame.maxY + 5, width: textSize.width + 4, height: 3)
+        let font = tabFont(selected: true)
+        let textWidth = (tabTitles[selectedIndex] as NSString).size(withAttributes: [.font: font]).width
+        underline.snp.remakeConstraints { make in
+            make.centerX.equalTo(button)
+            make.top.equalTo(button.snp.bottom).offset(5)
+            make.width.equalTo(textWidth + 4)
+            make.height.equalTo(3)
+        }
     }
 
-    private func showSegment(_ index: Int) {
-        pmList?.view.removeFromSuperview()
-        pmList?.removeFromParent()
-        noticeList?.view.removeFromSuperview()
-        noticeList?.removeFromParent()
-
-        let child: UIViewController
-        if index == 0 {
-            let controller = PMListViewController()
-            pmList = controller
-            child = controller
-        } else {
-            let controller = NoticeViewController()
-            noticeList = controller
-            child = controller
-        }
-        addChild(child)
-        container.addSubview(child.view)
-        child.view.snp.makeConstraints { make in
+    private func setupPages() {
+        addChild(pageController)
+        container.addSubview(pageController.view)
+        pageController.view.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
-        child.didMove(toParent: self)
+        pageController.didMove(toParent: self)
+        pageController.setViewControllers([pages[0]], direction: .forward, animated: false)
+        applyTabState()
+    }
+}
+
+// MARK: - 左右滑动切换
+
+extension MessagesViewController: UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+
+    func pageViewController(
+        _ pageViewController: UIPageViewController,
+        viewControllerBefore viewController: UIViewController
+    ) -> UIViewController? {
+        guard let index = pages.firstIndex(of: viewController), index > 0 else { return nil }
+        return pages[index - 1]
+    }
+
+    func pageViewController(
+        _ pageViewController: UIPageViewController,
+        viewControllerAfter viewController: UIViewController
+    ) -> UIViewController? {
+        guard let index = pages.firstIndex(of: viewController), index < pages.count - 1 else { return nil }
+        return pages[index + 1]
+    }
+
+    func pageViewController(
+        _ pageViewController: UIPageViewController,
+        didFinishAnimating finished: Bool,
+        previousViewControllers: [UIViewController],
+        transitionCompleted completed: Bool
+    ) {
+        guard completed,
+              let current = pageViewController.viewControllers?.first,
+              let index = pages.firstIndex(of: current) else { return }
+        selectedIndex = index
+        applyTabState()
     }
 }
 
