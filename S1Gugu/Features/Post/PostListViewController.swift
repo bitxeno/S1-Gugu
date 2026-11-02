@@ -453,8 +453,13 @@ final class PostListViewController: UIViewController {
                 if self.posts.isEmpty {
                     self.renderError(error)
                 } else {
-                    self.footerError = (error as? LocalizedError)?.errorDescription ?? "加载失败"
+                    // 目标页加载失败但仍保留着上一页内容(典型:胶囊跳页回第一页时服务端 503)。
+                    // 必须收起整页 loading,否则会一直停在「正在加载帖子」——既看不到内容也没有报错。
+                    let reason = (error as? LocalizedError)?.errorDescription ?? "加载失败"
+                    self.footerError = reason
                     self.applySnapshot()
+                    self.placeholder.isHidden = true
+                    Toast.show("第 \(page) 页加载失败:\(reason)", in: self.view)
                 }
             }
         }
@@ -572,6 +577,7 @@ final class PostListViewController: UIViewController {
     }
 
     private func renderError(_ error: Error) {
+        NetworkLog.net.error("帖子加载失败 tid=\(self.threadId, privacy: .public) page=\(self.currentPage, privacy: .public) error=\(String(describing: error), privacy: .public)")
         placeholder.state = .error(
             icon: "wifi.exclamationmark",
             title: "帖子加载失败",

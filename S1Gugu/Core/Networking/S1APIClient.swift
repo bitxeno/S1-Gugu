@@ -135,16 +135,27 @@ final class S1APIClient: Sendable {
 
         do {
             let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+            guard let http = response as? HTTPURLResponse else {
+                NetworkLog.net.error("\(method, privacy: .public) \(url.absoluteString, privacy: .public) 非 HTTP 响应")
+                throw APIError.invalidResponse
+            }
             guard (200..<300).contains(http.statusCode) else {
+                // 非 2xx 一律留痕:状态码 + 响应体落盘,便于排查 5xx / WAF 拦截
+                let dump = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("s1gugu_http_\(http.statusCode)_\(Int(Date().timeIntervalSince1970)).html")
+                try? data.write(to: dump)
+                NetworkLog.net.error("HTTP \(http.statusCode, privacy: .public) \(method, privacy: .public) \(url.absoluteString, privacy: .public) 原文已存 \(dump.path, privacy: .public)")
                 throw APIError.server("HTTP \(http.statusCode)")
             }
+            NetworkLog.net.debug("HTTP \(http.statusCode, privacy: .public) \(url.absoluteString, privacy: .public) \(data.count, privacy: .public) bytes")
             return data
         } catch let error as APIError {
             throw error
         } catch let error as URLError {
+            NetworkLog.net.error("\(method, privacy: .public) \(url.absoluteString, privacy: .public) URLError=\(error.code.rawValue, privacy: .public) \(error.localizedDescription, privacy: .public)")
             throw APIError.network(error)
         } catch {
+            NetworkLog.net.error("\(method, privacy: .public) \(url.absoluteString, privacy: .public) 失败 \(String(describing: error), privacy: .public)")
             throw APIError.invalidResponse
         }
     }
