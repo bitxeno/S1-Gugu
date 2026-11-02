@@ -44,7 +44,9 @@ final class PostListViewController: UIViewController {
     init(threadId: Int, threadTitle: String, jumpPage: Int? = nil, anchorPid: Int? = nil) {
         self.threadId = threadId
         self.threadTitle = threadTitle
-        self.initialPage = jumpPage
+        // 页码入口归一化:深链/剪贴板/进度恢复可能传入 0 或负数,统一收敛到 1,
+        // 否则会把 page=0 发给接口,或让日志/标题显示成 0。
+        self.initialPage = jumpPage.map(PostPagerState.normalizedPage)
         self.initialAnchorPid = anchorPid
         super.init(nibName: nil, bundle: nil)
         // 帖子详情沉浸阅读:隐藏全局 TabBar,改用底部功能栏(导航栏保留)
@@ -75,10 +77,10 @@ final class PostListViewController: UIViewController {
             guard let self else { return }
             if self.initialPage == nil, AppSettings.autoRestoreProgress,
                let progress = await ReadProgressService.progress(for: self.threadId) {
-                self.initialPage = progress.page
+                self.initialPage = PostPagerState.normalizedPage(progress.page)
                 self.initialAnchorPid = progress.anchorPid
             }
-            self.loadPage(initialPage ?? 1, anchorPid: initialAnchorPid, replace: true)
+            self.loadPage(PostPagerState.normalizedPage(self.initialPage ?? 1), anchorPid: self.initialAnchorPid, replace: true)
         }
     }
 
@@ -340,8 +342,10 @@ final class PostListViewController: UIViewController {
 
     // MARK: - Data
 
-    private func loadPage(_ page: Int, anchorPid: Int? = nil, replace: Bool) {
+    private func loadPage(_ requestedPage: Int, anchorPid: Int? = nil, replace: Bool) {
         guard !isLoading else { return }
+        // 兜底:页码归一化到 >= 1,避免任何调用方把 0/负数传给接口
+        let page = PostPagerState.normalizedPage(requestedPage)
         isLoading = true
         if replace {
             placeholder.state = .loading("正在加载帖子")
@@ -451,7 +455,7 @@ final class PostListViewController: UIViewController {
                 }
                 self.isLoading = false
                 if self.posts.isEmpty {
-                    self.renderError(error)
+                    self.renderError(error, page: page)
                 } else {
                     // 目标页加载失败但仍保留着上一页内容(典型:胶囊跳页回第一页时服务端 503)。
                     // 必须收起整页 loading,否则会一直停在「正在加载帖子」——既看不到内容也没有报错。
@@ -576,15 +580,15 @@ final class PostListViewController: UIViewController {
         refreshPagerBar()
     }
 
-    private func renderError(_ error: Error) {
-        NetworkLog.net.error("帖子加载失败 tid=\(self.threadId, privacy: .public) page=\(self.currentPage, privacy: .public) error=\(String(describing: error), privacy: .public)")
+    private func renderError(_ error: Error, page: Int) {
+        // 记录本次实际请求的页码,而非尚未写入的 currentPage(否则首次进入会误报 page=0)
+        NetworkLog.net.error("帖子加载失败 tid=\(self.threadId, privacy: .public) page=\(page, privacy: .public) error=\(String(describing: error), privacy: .public)")
         placeholder.state = .error(
             icon: "wifi.exclamationmark",
             title: "帖子加载失败",
             message: (error as? LocalizedError)?.errorDescription ?? "请稍后重试",
             retry: { [weak self] in
-                self?.initialPage = max(self?.currentPage ?? 1, 1)
-                self?.loadPage(self?.initialPage ?? 1, replace: true)
+                self?.loadPage(PostPagerState.normalizedPage(page), replace: true)
             }
         )
     }

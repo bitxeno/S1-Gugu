@@ -37,4 +37,9 @@ struct PostPagerState: Equatable {
     var nextTarget: Int? {
         canNext ? currentPage + 1 : nil
     }
+
+    /// 请求页码归一化:任何来源(深链/剪贴板/进度恢复)传入的 0 或负数都收敛到 1。
+    static func normalizedPage(_ page: Int) -> Int {
+        max(page, 1)
+    }
 }

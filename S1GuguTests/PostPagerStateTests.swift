@@ -48,4 +48,12 @@ final class PostPagerStateTests: XCTestCase {
         let state = PostPagerState(currentPage: 0, pageCount: 0)
         XCTAssertEqual(state.pageCount, 1)
     }
+
+    func testNormalizedPageClampsToFirstPage() {
+        // 深链/进度恢复传入 0 或负数时,请求页码必须收敛到 1
+        XCTAssertEqual(PostPagerState.normalizedPage(0), 1)
+        XCTAssertEqual(PostPagerState.normalizedPage(-5), 1)
+        XCTAssertEqual(PostPagerState.normalizedPage(1), 1)
+        XCTAssertEqual(PostPagerState.normalizedPage(7), 7)
+    }
 }
