@@ -145,9 +145,14 @@ struct DiscuzAPI: Sendable {
     }
 
     func posts(tid: Int, page: Int, authorId: Int? = nil) async throws -> PostsResult {
+        // 回复列表走 checkpost 接口(version=1 + submodule=checkpost + mobile=no)。
+        // 相比旧 version=4:引用为 <blockquote>(已由 PostPreprocessor 原生处理)、
+        // 附带「本帖最后由…编辑」信息;Variables 结构与 postlist/thread/special_poll 一致。
         var query: [String: String] = [
+            "mobile": "no",
             "module": "viewthread",
-            "version": "4",
+            "version": "1",
+            "submodule": "checkpost",
             "ppp": String(Self.postsPerPage),
             "tid": String(tid),
             "page": String(page),

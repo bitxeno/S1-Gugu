@@ -131,4 +131,21 @@ final class BlockSplitterTests: XCTestCase {
         }
         XCTAssertEqual(file.name, "doc.pdf")
     }
+
+    /// checkpost(version=1)接口的引用结构为 <div class="quote"><blockquote>,需能解析为引用块
+    func testV1QuoteDivBlockquoteParsesAsQuote() {
+        let html = ##"<div class="quote"><blockquote><a href="https://stage1st.com/2b/forum.php?mod=redirect&amp;goto=findpost&amp;pid=70456467&amp;ptid=2293069" target="_blank"><font color="#999999">seducer0719 发表于 2026-11-2 12:18</font></a><br />\r\n这不是堕落天使？</blockquote></div><br />\r\n正文内容"##
+        let blocks = BlockSplitter.split(html: html, baseURL: nil)
+        guard case let .quote(author, attributed)? = blocks.first else {
+            return XCTFail("第一个块应为引用块,实际:\(blocks)")
+        }
+        XCTAssertEqual(author, "seducer0719")
+        XCTAssertTrue(attributed.value.string.contains("这不是堕落天使"))
+        // 引用之后的正文仍应作为文本块出现
+        let hasBody = blocks.contains { block in
+            if case let .text(t) = block { return t.value.string.contains("正文内容") }
+            return false
+        }
+        XCTAssertTrue(hasBody, "引用后的正文应作为文本块,实际:\(blocks)")
+    }
 }

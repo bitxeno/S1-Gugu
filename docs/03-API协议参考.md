@@ -9,7 +9,7 @@
 |---|---|
 | Base URL | `https://stage1st.com/2b/`(备选 host:`bbs.saraba1st.com`、`www.saraba1st.com`、`stage1st.com`、`www.stage1st.com`) |
 | 移动 API 前缀 | `api/mobile/index.php?module=<module>` |
-| version 参数 | 对论坛域请求默认补 `version=1`;`forumdisplay` 用 `version=4`;`viewthread` v1/v4 均有(v4 引用为 `div.reply_wrap` 且含评分数据) |
+| version 参数 | 对论坛域请求默认补 `version=1`;`forumdisplay` 用 `version=4`;帖子详情 `viewthread` 用 `version=1` + `submodule=checkpost` + `mobile=no`(引用为 `div.quote > blockquote`,附「本帖最后由…编辑」;v4 为 `div.reply_wrap`) |
 | 分页常量 | 主题 50 条/页(tpp=50);帖子 40 楼/页(ppp=40) |
 | 编码 | 读:GET + query;写:`application/x-www-form-urlencoded`;附件:multipart/form-data |
 | 登录态 | 纯 cookie(`*_saltkey`、`*_auth`),HTTP 端自动携带;无 token 轮换 |
@@ -50,10 +50,10 @@
 - 置顶与普通主题混排于 threadlist(displayorder 区分)
 
 ### 2.4 帖子详情
-`GET api/mobile/index.php?module=viewthread&version=4&ppp=40&tid={tid}&page={page}`(+`authorid` 只看他,M3)
-- 返回 `Variables`:`thread`(tid/subject/replies/author…)、`postlist[]`、`ppp`、`pagecount`、`page`
-- Post 关键字段:`pid, first("1"=主楼), author, authorid, authortitle, dateline(时间串), number(楼层号), message(服务端预渲染 HTML), attachments{aid: {url, attachment, isimage, filename, filesize}}`(attachments 可能是对象或空数组,双形态)
-- `message` 为 HTML 片段:服务端已渲染,含 `<blockquote>/<div class="reply_wrap">/<img file|zoomfile>/<font>/<a>` 等;进入渲染管线(架构文档 §5)
+`GET api/mobile/index.php?mobile=no&module=viewthread&version=1&submodule=checkpost&ppp=40&tid={tid}&page={page}`(+`authorid` 只看他,M3)
+- 返回 `Variables`:`thread`(tid/subject/replies/maxposition/author…)、`postlist[]`、`ppp`;`pagecount`/`page` 可能缺省,用 `maxposition` 或 `replies` 兜底计算
+- Post 关键字段:`pid, first("1"=主楼), author, authorid, dateline(时间串), number(楼层号), dbdateline, status, message(服务端预渲染 HTML), attachments{aid: {url, attachment, isimage, filename, filesize}}`(attachments 可能是对象或空数组,双形态)
+- `message` 为 HTML 片段:服务端已渲染,含 `<div class="quote"><blockquote>`(引用)、`<img file|zoomfile>`、`<font>`、`<a>`、`<i class="pstatus">本帖最后由…编辑</i>` 等;进入渲染管线(架构文档 §5)
 
 ### 2.5 收藏
 - 列表:`GET module=myfavthread&page={page}` → `Variables.list[]`(`idfield=tid, title, description, dateline` 等)
