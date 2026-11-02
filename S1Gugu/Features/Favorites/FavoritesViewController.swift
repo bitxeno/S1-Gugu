@@ -1,9 +1,51 @@
 import UIKit
 import SnapKit
 
-/// Tab 2「收藏」:论坛收藏主题列表(50/页),滑动移除收藏。
+/// Tab 2「收藏」:收藏 + 浏览历史,复用 `TabbedPageViewController` 的顶部文字 Tab,
+/// 支持左右滑动切换;本页隐藏导航栏,push 进帖子时恢复。
 @MainActor
-final class FavoritesViewController: UIViewController {
+final class FavoritesViewController: TabbedPageViewController {
+
+    private let favoritesList = FavoritesListViewController()
+    private let historyList = HistoryViewController()
+    private let clearButton = UIButton(type: .system)
+
+    init() {
+        super.init(tabs: [
+            Tab(title: "收藏", controller: favoritesList),
+            Tab(title: "浏览历史", controller: historyList),
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    /// 「浏览历史」页右侧提供清空入口(收藏页无操作按钮)
+    override func headerToolViews(for index: Int) -> [UIView] {
+        guard index == 1 else { return [] }
+        clearButton.tintColor = Theme.barForeground
+        clearButton.accessibilityLabel = "清空浏览历史"
+        if #available(iOS 26.0, *) {
+            var config = UIButton.Configuration.glass()
+            config.image = UIImage(systemName: "trash")
+            config.cornerStyle = .capsule
+            config.baseForegroundColor = Theme.barForeground
+            config.contentInsets = .zero
+            clearButton.configuration = config
+        } else {
+            clearButton.setImage(UIImage(systemName: "trash"), for: .normal)
+        }
+        clearButton.addAction(UIAction { [weak self] _ in
+            self?.historyList.requestClear()
+        }, for: .touchUpInside)
+        return [clearButton]
+    }
+}
+
+/// 收藏列表:论坛收藏主题(50/页),滑动移除收藏。
+@MainActor
+final class FavoritesListViewController: UIViewController {
 
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Int, Favourite>!
@@ -17,7 +59,6 @@ final class FavoritesViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Theme.background
-        navigationItem.title = "收藏"
         setupCollectionView()
 
         NotificationCenter.default.addObserver(
@@ -149,7 +190,7 @@ final class FavoritesViewController: UIViewController {
     }
 }
 
-extension FavoritesViewController: UICollectionViewDelegate {
+extension FavoritesListViewController: UICollectionViewDelegate {
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let favorite = dataSource.itemIdentifier(for: indexPath) else { return }

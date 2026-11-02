@@ -49,6 +49,11 @@ final class HistoryViewController: UIViewController {
         ])
     }
 
+    /// 供容器(收藏页「浏览历史」Tab)触发的「清空历史」入口
+    func requestClear() {
+        confirmClear()
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         Task { await reload() }
