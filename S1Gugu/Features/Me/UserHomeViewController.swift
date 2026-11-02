@@ -90,8 +90,10 @@ final class UserHomeViewController: UIViewController {
         let avatar = UIImageView()
         avatar.layer.cornerRadius = 28
         avatar.layer.masksToBounds = true
+        avatar.contentMode = .scaleAspectFill
         avatar.kf.setImage(with: profile.avatarURL ?? AvatarURL.url(uid: Int(uid) ?? 0),
-                           placeholder: UIImage(systemName: "person.crop.circle.fill"))
+                           placeholder: DefaultAvatar.image,
+                           options: [.onFailureImage(DefaultAvatar.image)])
         avatar.snp.makeConstraints { $0.size.equalTo(CGSize(width: 56, height: 56)) }
 
         let nameLabel = UILabel()

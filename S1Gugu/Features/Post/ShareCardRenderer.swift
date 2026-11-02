@@ -50,21 +50,23 @@ enum ShareCardRenderer {
             .joined(separator: " · ")
         stack.addArrangedSubview(metaLabel)
 
-        // 头像(可选,有缓存就用)
-        if let avatarURL = post.avatarURL, let avatar = await cachedImage(avatarURL) {
-            let avatarView = UIImageView(image: avatar)
-            avatarView.layer.cornerRadius = 24
-            avatarView.clipsToBounds = true
-            avatarView.widthAnchor.constraint(equalToConstant: 48).isActive = true
-            avatarView.heightAnchor.constraint(equalToConstant: 48).isActive = true
-            avatarView.contentMode = .scaleAspectFill
-            let headerRow = UIStackView(arrangedSubviews: [avatarView, metaLabel])
-            headerRow.axis = .horizontal
-            headerRow.spacing = 14
-            headerRow.alignment = .center
-            if let index = stack.arrangedSubviews.firstIndex(of: metaLabel) {
-                stack.insertArrangedSubview(headerRow, at: index)
-            }
+        // 头像:优先用加载到的图片,没有则回退到默认头像,保证楼层头始终有头像
+        var avatar = DefaultAvatar.image
+        if let avatarURL = post.avatarURL, let cached = await cachedImage(avatarURL) {
+            avatar = cached
+        }
+        let avatarView = UIImageView(image: avatar)
+        avatarView.layer.cornerRadius = 24
+        avatarView.clipsToBounds = true
+        avatarView.widthAnchor.constraint(equalToConstant: 48).isActive = true
+        avatarView.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        avatarView.contentMode = .scaleAspectFill
+        let headerRow = UIStackView(arrangedSubviews: [avatarView, metaLabel])
+        headerRow.axis = .horizontal
+        headerRow.spacing = 14
+        headerRow.alignment = .center
+        if let index = stack.arrangedSubviews.firstIndex(of: metaLabel) {
+            stack.insertArrangedSubview(headerRow, at: index)
         }
 
         // 正文块

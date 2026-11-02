@@ -32,8 +32,7 @@ final class PostHeaderCell: UICollectionViewCell {
         avatarView.contentMode = .scaleAspectFill
         avatarView.layer.cornerRadius = 20
         avatarView.layer.masksToBounds = true
-        avatarView.image = UIImage(systemName: "person.crop.circle.fill")
-        avatarView.tintColor = Theme.tertiaryLabel
+        avatarView.image = DefaultAvatar.image
         avatarView.isUserInteractionEnabled = true
         avatarView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(avatarTapped)))
 
@@ -128,11 +127,11 @@ final class PostHeaderCell: UICollectionViewCell {
         if let url = model.avatarURL {
             avatarView.kf.setImage(
                 with: url,
-                placeholder: UIImage(systemName: "person.crop.circle.fill"),
-                options: [.transition(.fade(0.15))]
+                placeholder: DefaultAvatar.image,
+                options: [.transition(.fade(0.15)), .onFailureImage(DefaultAvatar.image)]
             )
         } else {
-            avatarView.image = UIImage(systemName: "person.crop.circle.fill")
+            avatarView.image = DefaultAvatar.image
         }
     }
 }
