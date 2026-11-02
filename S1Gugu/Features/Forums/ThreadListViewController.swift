@@ -42,7 +42,7 @@ final class ThreadCell: UICollectionViewCell {
         newReplyLabel.isHidden = true
         contentView.addSubview(newReplyLabel)
 
-        titleLabel.font = .preferredFont(forTextStyle: .headline)
+        titleLabel.font = .preferredFont(forTextStyle: .body)
         titleLabel.numberOfLines = 2
         titleLabel.adjustsFontForContentSizeCategory = true
 
@@ -102,7 +102,7 @@ final class ThreadCell: UICollectionViewCell {
 
         // 置顶/投票方框徽标以文本附件形式内联在标题前:换行自然,
         // 第二行从标题 leading 起始,徽标只占第一行前缀
-        let titleFont = UIFont.preferredFont(forTextStyle: .headline)
+        let titleFont = UIFont.preferredFont(forTextStyle: .body)
         let titleColor: UIColor = isRead ? Theme.secondaryLabel : Theme.label
         let accent = Theme.accent.resolvedColor(with: traitCollection)
         let content = NSMutableAttributedString()
