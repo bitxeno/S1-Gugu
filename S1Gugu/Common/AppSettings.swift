@@ -47,13 +47,21 @@ enum AppSettings {
     private static let customHostEnabledKey = "customHostEnabled"
     private static let customHostKey = "customHost"
     private static let fontScaleKey = "fontScale"
+    private static let clipboardLinkEnabledKey = "clipboardLinkEnabled"
 
     static func registerDefaults() {
         defaults.register(defaults: [
             wifiOnlyImagesKey: false,
             autoSaveProgressKey: true,
             autoRestoreProgressKey: true,
+            clipboardLinkEnabledKey: true,
         ])
+    }
+
+    /// 回到前台时识别剪贴板里的论坛链接并自动打开对应主题(默认开)
+    static var clipboardLinkEnabled: Bool {
+        get { defaults.bool(forKey: clipboardLinkEnabledKey) }
+        set { defaults.set(newValue, forKey: clipboardLinkEnabledKey) }
     }
 
     /// 仅 Wi-Fi 加载帖子大图(头像不受限)

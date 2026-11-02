@@ -22,6 +22,19 @@ enum LinkRouter {
         viewController.present(safari, animated: true)
     }
 
+    /// 剪贴板自动跳转:回到 Tab 首页后再打开目标页面,
+    /// 避免在已有多层页面上继续叠加导航栈。
+    static func openFromClipboard(_ url: URL, from viewController: UIViewController) {
+        guard let thread = parseThread(url) else {
+            handle(url, from: viewController)
+            return
+        }
+        let navigation = viewController.navigationController
+        navigation?.popToRootViewController(animated: false)
+        let controller = PostListViewController(threadId: thread.tid, threadTitle: "主题 #\(thread.tid)", jumpPage: thread.page)
+        navigation?.pushViewController(controller, animated: true)
+    }
+
     struct ThreadTarget: Equatable {
         let tid: Int
         let page: Int?
@@ -71,8 +84,45 @@ enum LinkRouter {
         return hosts.contains { host == $0 || host.hasSuffix(".\($0)") }
     }
 
+    /// 剪贴板文本 → 可进 App 的站内 URL。
+    ///
+    /// 兼容复制来的裸链接(无 http:// 前缀),例如
+    /// `stage1st.com/2b/thread-2293055-1-1.html`。
+    static func parseClipboardURL(_ raw: String) -> URL? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        let candidate: URL?
+        if let url = URL(string: text), url.scheme != nil {
+            candidate = url
+        } else if let url = URL(string: "https://\(text)") {
+            candidate = url
+        } else {
+            candidate = nil
+        }
+        guard let url = candidate, let host = url.host, isForumHost(host) else { return nil }
+        // 只接管能落到具体页面的链接,其余交给系统或 Safari 处理
+        guard parseThread(url) != nil || parseForum(url) != nil else { return nil }
+        return url
+    }
+
     static func threadURL(tid: Int, page: Int) -> URL {
         URL(string: "https://stage1st.com/2b/thread-\(tid)-\(max(page, 1))-1.html")!
+    }
+}
+
+extension UIViewController {
+    /// 当前最顶层的可见控制器(含 presented / 导航 / Tab 容器展开)
+    var topMostViewController: UIViewController {
+        if let presented = presentedViewController {
+            return presented.topMostViewController
+        }
+        if let navigation = self as? UINavigationController {
+            return (navigation.visibleViewController ?? navigation).topMostViewController
+        }
+        if let tab = self as? UITabBarController {
+            return (tab.selectedViewController ?? tab).topMostViewController
+        }
+        return self
     }
 }
 

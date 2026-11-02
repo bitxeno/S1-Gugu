@@ -135,7 +135,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section) {
         case .image: return 2
-        case .read: return 3
+        case .read: return 4
         case .display: return 4
         case .network: return 3
         default: return 2
@@ -185,10 +185,17 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 return toggleCell(cell, title: "自动恢复阅读进度", subtitle: nil, isOn: AppSettings.autoRestoreProgress) {
                     AppSettings.autoRestoreProgress = $0
                 }
-            default:
+            case 2:
                 return toggleCell(cell, title: "楼层快速侧边条", subtitle: "帖子右侧字母条,滑动快速跳转楼层", isOn: AppSettings.quickSideBarEnabled) {
                     AppSettings.quickSideBarEnabled = $0
                 }
+            default:
+                return toggleCell(
+                    cell,
+                    title: "剪贴板链接自动打开",
+                    subtitle: "回到 App 时识别剪贴板里的论坛链接,直接打开对应主题",
+                    isOn: AppSettings.clipboardLinkEnabled
+                ) { AppSettings.clipboardLinkEnabled = $0 }
             }
         case .display:
             switch indexPath.row {

@@ -38,4 +38,24 @@ final class LinkRouterTests: XCTestCase {
         )
         XCTAssertNil(AvatarURL.url(uid: 0))
     }
+
+    func testParseClipboardURL() {
+        // 完整链接
+        XCTAssertEqual(
+            LinkRouter.parseClipboardURL("https://stage1st.com/2b/thread-2293055-1-1.html")?.absoluteString,
+            "https://stage1st.com/2b/thread-2293055-1-1.html"
+        )
+        // 不带 scheme 的裸链接
+        XCTAssertEqual(
+            LinkRouter.parseClipboardURL(" stage1st.com/2b/thread-2293055-2-1.html\n")?.path,
+            "/2b/thread-2293055-2-1.html"
+        )
+        // 换行/空白包裹
+        XCTAssertNotNil(LinkRouter.parseClipboardURL("  https://stage1st.com/2b/forum-87-1.html  "))
+        // 站外域名不接管
+        XCTAssertNil(LinkRouter.parseClipboardURL("https://example.com/thread-1-1-1.html"))
+        // 站内但无法定位到页面的链接不接管
+        XCTAssertNil(LinkRouter.parseClipboardURL("https://stage1st.com/2b/"))
+        XCTAssertNil(LinkRouter.parseClipboardURL("hello world"))
+    }
 }
