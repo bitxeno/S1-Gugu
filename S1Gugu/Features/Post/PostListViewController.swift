@@ -9,7 +9,8 @@ final class PostListViewController: UIViewController {
 
     private enum Item: Hashable {
         case header(PostHeaderModel)
-        case block(PostBlock)
+        /// offset = 该块在楼层内的序号,保证相同内容的块(如多个纯空行块)标识唯一
+        case block(offset: Int, block: PostBlock)
         case hidden(remark: String?)
         case vote(VoteInfo)
     }
@@ -214,7 +215,7 @@ final class PostListViewController: UIViewController {
             switch item {
             case let .header(model):
                 return collectionView.dequeueConfiguredReusableCell(using: headerRegistration, for: indexPath, item: model)
-            case let .block(block):
+            case let .block(_, block):
                 switch block {
                 case let .text(attributed):
                     return collectionView.dequeueConfiguredReusableCell(using: textRegistration, for: indexPath, item: attributed)
@@ -567,8 +568,8 @@ final class PostListViewController: UIViewController {
             if post.isFirst, let vote = currentVote {
                 snapshot.appendItems([.vote(vote)], toSection: post.pid)
             }
-            for block in blocksByPid[post.pid] ?? [] {
-                snapshot.appendItems([.block(block)], toSection: post.pid)
+            for (offset, block) in (blocksByPid[post.pid] ?? []).enumerated() {
+                snapshot.appendItems([.block(offset: offset, block: block)], toSection: post.pid)
             }
         }
         dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in

@@ -211,4 +211,45 @@ final class BlockSplitterTests: XCTestCase {
         }
         XCTAssertEqual(image.url.absoluteString, "https://img.stage1st.com/forum/202611/02/x.jpg")
     }
+
+    /// 图片块前后的 <br> 空行属于作者排版,应两侧对称保留(不能一侧删一侧留)
+    func testImageSurroundingBlankLinesPreservedSymmetrically() {
+        let attachment = PostAttachment(json: JSON([
+            "aid": "2166637",
+            "url": "https://img.stage1st.com/forum/",
+            "attachment": "202611/02/abc.png",
+            "isimage": "-1",
+            "attachimg": "1",
+            "filename": "op.png",
+            "filesize": "290470",
+            "width": "768",
+            "height": "432",
+        ]))
+        // 还原真实结构:<br/><br/><br/>[attach]…[/attach]<br/><br/>正文
+        let html = "<br /><br /><br />[attach]2166637[/attach]<br /><br />看这张图"
+        let blocks = BlockSplitter.split(
+            html: html,
+            baseURL: nil,
+            extraAttachments: [attachment],
+            attachmentsByAid: [2166637: attachment]
+        )
+        // 图片块存在
+        XCTAssertTrue(blocks.contains { if case .image = $0 { return true } else { return false } },
+                      "应包含图片块,实际:\(blocks)")
+        // 图片前的空行块被保留(纯换行块)
+        guard let imageIndex = blocks.firstIndex(where: { if case .image = $0 { return true } else { return false } }),
+              imageIndex >= 1,
+              case let .text(before) = blocks[imageIndex - 1] else {
+            return XCTFail("图片前应保留空行块,实际:\(blocks)")
+        }
+        XCTAssertTrue(before.value.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      "图片前应为纯空行,实际:\(before.value.string.debugDescription)")
+        // 图片后的文本块保留作者的前导换行(<br/><br/>)
+        guard let afterIndex = blocks.indices.first(where: { $0 > imageIndex }),
+              case let .text(after) = blocks[afterIndex] else {
+            return XCTFail("图片后应有文本块,实际:\(blocks)")
+        }
+        XCTAssertTrue(after.value.string.hasPrefix("\n"), "图片后文本应保留前导换行,实际:\(after.value.string.debugDescription)")
+        XCTAssertTrue(after.value.string.contains("看这张图"))
+    }
 }

@@ -156,11 +156,18 @@ enum BlockSplitter {
         let attributed = HtmlAttributedBuilder.attributed(
             from: nodes, style: HtmlAttributedBuilder.bodyStyle(), baseURL: baseURL
         )
-        guard attributed.length > 0, attributed.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false || containsAttachment(attributed)
-        else { return }
-        // 裁掉块尾换行:文末 <br> 只会在块内多出空白行
-        let trimmed = trimTrailingNewlines(attributed)
-        blocks.append(.text(AttributedText(trimmed)))
+        guard attributed.length > 0 else { return }
+        let hasVisibleContent = attributed.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            || containsAttachment(attributed)
+        if !hasVisibleContent {
+            // 纯换行块:这是作者在块级元素(图片/引用等)之间敲的空行,原样保留,
+            // 不裁剪——否则图片前后的 <br> 会一侧被删、一侧保留,排版失真。
+            blocks.append(.text(AttributedText(attributed)))
+            return
+        }
+        // 有内容的块:仅裁掉块尾换行(Discuz 在每段末尾补的 <br> 只会在块内多出空白行);
+        // 块首换行属于作者排版,保留。
+        blocks.append(.text(AttributedText(trimTrailingNewlines(attributed))))
     }
 
     private static func trimTrailingNewlines(_ attributed: NSAttributedString) -> NSAttributedString {
