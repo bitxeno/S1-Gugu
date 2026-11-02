@@ -1,37 +1,157 @@
 import UIKit
 import SnapKit
 
-/// Tab 3「消息」:私信 + 通知(Segmented 切换)。
+/// Tab 3「消息」:私信 + 通知。顶部文字 Tab(选中加粗 + 下划线)替代导航标题,
+/// 本页隐藏导航栏,push 会话页时恢复;原导航栏「发私信」入口移到头部右侧。
 @MainActor
 final class MessagesViewController: UIViewController {
 
-    private let segmented = UISegmentedControl(items: ["私信", "通知"])
+    private let tabTitles = ["私信", "通知"]
+    private let header = UIView()
+    private let tabStack = UIStackView()
+    private let underline = UIView()
+    private let composeButton = UIButton(type: .system)
     private let container = UIView()
     private var pmList: PMListViewController?
     private var noticeList: NoticeViewController?
 
+    private var tabButtons: [UIButton] = []
+    private var selectedIndex = 0
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Theme.background
-        navigationItem.title = "消息"
-
-        segmented.selectedSegmentIndex = 0
-        segmented.addAction(UIAction { [weak self] action in
-            guard let control = action.sender as? UISegmentedControl else { return }
-            self?.showSegment(control.selectedSegmentIndex)
-        }, for: .valueChanged)
-
-        let stack = UIStackView(arrangedSubviews: [segmented, container])
-        stack.axis = .vertical
-        stack.spacing = 8
-        view.addSubview(stack)
-        stack.snp.makeConstraints { make in
-            make.edges.equalTo(view.safeAreaLayoutGuide)
+        // 字号随 Dynamic Type 变化时重算 Tab 字体与下划线
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (self: MessagesViewController, _) in
+            self.renderTabs()
+            self.view.setNeedsLayout()
         }
-        segmented.snp.makeConstraints { make in
-            make.height.equalTo(32)
-        }
+        setupHeader()
+        setupContainer()
         showSegment(0)
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        positionUnderline()
+    }
+
+    private func setupHeader() {
+        // 与其它页面导航栏同色(奶黄主题为奶茶色 #D8D8A8)
+        header.backgroundColor = Theme.navigationBarBackground
+        view.addSubview(header)
+        header.snp.makeConstraints { make in
+            make.top.leading.trailing.equalToSuperview()
+        }
+
+        tabStack.axis = .horizontal
+        tabStack.spacing = 20
+        tabStack.alignment = .center
+        header.addSubview(tabStack)
+        tabStack.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(6)
+            make.bottom.equalToSuperview().inset(12)
+        }
+
+        for (index, title) in tabTitles.enumerated() {
+            let button = UIButton(type: .system)
+            button.tag = index
+            var config = UIButton.Configuration.plain()
+            config.title = title
+            // 扩大点击热区,不影响下划线宽度计算(按文字实际宽度定位)
+            config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 6, bottom: 8, trailing: 6)
+            button.configuration = config
+            button.addAction(UIAction { [weak self] action in
+                guard let sender = action.sender as? UIButton else { return }
+                self?.selectTab(sender.tag)
+            }, for: .touchUpInside)
+            tabButtons.append(button)
+            tabStack.addArrangedSubview(button)
+        }
+        renderTabs()
+
+        underline.backgroundColor = Theme.barForeground
+        underline.layer.cornerRadius = 1.5
+        underline.isUserInteractionEnabled = false
+        header.addSubview(underline)
+
+        composeButton.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
+        composeButton.tintColor = Theme.barForeground
+        composeButton.accessibilityLabel = "发私信"
+        composeButton.addAction(UIAction { [weak self] _ in
+            self?.pmList?.showNewPM()
+        }, for: .touchUpInside)
+        header.addSubview(composeButton)
+        composeButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().inset(4)
+            make.centerY.equalTo(tabStack)
+            make.size.equalTo(44)
+        }
+    }
+
+    private func setupContainer() {
+        view.addSubview(container)
+        container.snp.makeConstraints { make in
+            make.top.equalTo(header.snp.bottom)
+            make.leading.trailing.bottom.equalToSuperview()
+        }
+    }
+
+    private func selectTab(_ index: Int) {
+        guard index != selectedIndex else { return }
+        selectedIndex = index
+        renderTabs()
+        showSegment(index)
+        composeButton.isEnabled = index == 0
+        UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
+            self.composeButton.alpha = index == 0 ? 1 : 0
+            self.view.layoutIfNeeded()
+        }
+    }
+
+    /// 选中加粗主色、未选中常规次级色,对齐 S1-Next 顶部 Tab
+    private func renderTabs() {
+        let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .title3)
+        for (index, button) in tabButtons.enumerated() {
+            let selected = index == selectedIndex
+            let styled = descriptor.withSymbolicTraits(selected ? .traitBold : []) ?? descriptor
+            var attributed = AttributedString(tabTitles[index])
+            attributed.font = UIFont(descriptor: styled, size: 0)
+            attributed.foregroundColor = selected ? Theme.barForeground : Theme.secondaryLabel
+            var config = button.configuration ?? UIButton.Configuration.plain()
+            config.attributedTitle = attributed
+            button.configuration = config
+            button.accessibilityTraits = selected ? [.button, .selected] : .button
+        }
+    }
+
+    /// 下划线对齐选中 Tab 的文字宽度,随布局刷新(切换时经 layoutIfNeeded 产生滑动动画)
+    private func positionUnderline() {
+        guard tabButtons.indices.contains(selectedIndex) else { return }
+        let button = tabButtons[selectedIndex]
+        let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .title3)
+        let bold = descriptor.withSymbolicTraits(.traitBold) ?? descriptor
+        let font = UIFont(descriptor: bold, size: 0)
+        let textSize = (tabTitles[selectedIndex] as NSString).size(withAttributes: [.font: font])
+        let buttonFrame = header.convert(button.bounds, from: button)
+        let textFrame = CGRect(
+            x: buttonFrame.midX - textSize.width / 2,
+            y: buttonFrame.midY - textSize.height / 2,
+            width: textSize.width,
+            height: textSize.height
+        )
+        underline.frame = CGRect(x: textFrame.minX - 2, y: textFrame.maxY + 5, width: textSize.width + 4, height: 3)
     }
 
     private func showSegment(_ index: Int) {
@@ -82,13 +202,6 @@ final class PMListViewController: UIViewController {
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "pmgroup")
         view.addSubview(tableView)
-
-        navigationItem.rightBarButtonItem = UIBarButtonItem(primaryAction: UIAction(
-            title: "发私信",
-            image: UIImage(systemName: "plus.square.on.square")
-        ) { [weak self] _ in
-            self?.showNewPM()
-        })
 
         placeholder.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(placeholder)
@@ -158,7 +271,7 @@ final class PMListViewController: UIViewController {
         )
     }
 
-    private func showNewPM() {
+    func showNewPM() {
         let alert = UIAlertController(title: "发新私信", message: "输入对方 UID 与内容", preferredStyle: .alert)
         alert.addTextField { $0.placeholder = "对方 UID"; $0.keyboardType = .numberPad }
         alert.addTextField { $0.placeholder = "内容" }
