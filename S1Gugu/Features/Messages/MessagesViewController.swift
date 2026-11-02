@@ -58,8 +58,8 @@ final class MessagesViewController: UIViewController {
         view.addSubview(header)
         header.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
-            // 头部内容区与系统导航栏同高(44pt),文字垂直居中位置一致
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.top).offset(44)
+            // 与其它页面导航栏同高(安全区下 54pt)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.top).offset(54)
         }
 
         tabStack.axis = .horizontal
@@ -95,17 +95,28 @@ final class MessagesViewController: UIViewController {
         }
         renderTabs()
 
-        composeButton.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
         composeButton.tintColor = Theme.barForeground
         composeButton.accessibilityLabel = "发私信"
+        if #available(iOS 26.0, *) {
+            // 与首页搜索按钮同款 Liquid Glass 圆形按钮(43pt,内含零内边距)
+            var config = UIButton.Configuration.glass()
+            config.image = UIImage(systemName: "square.and.pencil")
+            config.cornerStyle = .capsule
+            config.baseForegroundColor = Theme.barForeground
+            config.contentInsets = .zero
+            composeButton.configuration = config
+        } else {
+            composeButton.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
+        }
         composeButton.addAction(UIAction { [weak self] _ in
             self?.pmList.showNewPM()
         }, for: .touchUpInside)
         header.addSubview(composeButton)
         composeButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().inset(4)
+            // 对齐系统 bar button:43pt 圆形、右边距 16pt
+            make.trailing.equalToSuperview().inset(16)
             make.centerY.equalTo(tabStack)
-            make.size.equalTo(44)
+            make.size.equalTo(43)
         }
     }
 
