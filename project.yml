@@ -30,6 +30,11 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     CODE_SIGN_STYLE: Automatic
     SWIFT_TREAT_WARNINGS_AS_ERRORS: "NO"
+    # 版本号默认值。发布时 CI 用 MARKETING_VERSION=... 覆盖这两个值。
+    # Info.plist 里对应写 $(MARKETING_VERSION) / $(CURRENT_PROJECT_VERSION),
+    # 否则版本号会被写死成 1.0(设置页也就永远显示 1.0)。
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
 
 targets:
   S1Gugu:
@@ -48,6 +53,9 @@ targets:
       path: S1Gugu/Info.plist
       properties:
         CFBundleDisplayName: S1 Gugu
+        # 必须在这里声明,否则 xcodegen 每次生成都会把 Info.plist 的版本号重置为 1.0/1
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
