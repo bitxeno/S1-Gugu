@@ -341,8 +341,9 @@ extension ForumGroupsViewController: UITableViewDelegate {
         guard favorites.indices.contains(sourceRow),
               favorites.indices.contains(destinationRow) else { return }
         let moved = favorites[sourceRow]
-        var reordered = favorites
-        reordered.move(fromOffsets: IndexSet(integer: sourceRow), toOffset: destinationRow)
+        // UITableView 的 destinationRow 是「移动后的最终行号」(remove 再 insert 模型),
+        // 不能用 SwiftUI 的 move(fromOffsets:toOffset:)(insertion 语义,向下拖会错位)。
+        let reordered = FavoriteReorder.reordering(favorites, moving: sourceRow, to: destinationRow)
         guard reordered != favorites else { return }
         // 用移动后相邻条目作锚点,把重排以增量 move 应用到当前快照
         let movedIndex = reordered.firstIndex(of: moved) ?? 0
@@ -357,5 +358,18 @@ extension ForumGroupsViewController: UITableViewDelegate {
                 if case let .favorite(entry) = $0 { return entry.forumId } else { return nil }
             })
         }
+    }
+}
+
+/// 收藏版块拖动排序的纯计算(可单测)。
+enum FavoriteReorder {
+    /// 按 UITableView `moveRowAt` 语义重排:destination 为移动后的最终行号。
+    /// 向下拖动时需先移除再插入(最终索引 = destination),与 `remove(at:)` + `insert(at:)` 一致。
+    static func reordering<T>(_ items: [T], moving source: Int, to destination: Int) -> [T] {
+        guard items.indices.contains(source), items.indices.contains(destination) else { return items }
+        var result = items
+        let moved = result.remove(at: source)
+        result.insert(moved, at: destination)
+        return result
     }
 }
