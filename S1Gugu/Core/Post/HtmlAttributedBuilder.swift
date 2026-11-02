@@ -47,19 +47,23 @@ enum HtmlAttributedBuilder {
 
     private static func append(node: Node, style: Style, into output: NSMutableAttributedString, baseURL: URL?) {
         if let text = node as? TextNode {
+            // 统一换行符:Swift 把 "\r\n" 视为单个 Character(CRLF 字形簇),
+            // 导致 contains("\n") 判断为 false、纯空白的 "\r\n" 节点漏过并被当成
+            // 额外换行,段间空白成倍放大。先归一为 "\n" 再处理。
             let raw = text.getWholeText()
+                .replacingOccurrences(of: "\r\n", with: "\n")
+                .replacingOccurrences(of: "\r", with: "\n")
             guard !raw.isEmpty else { return }
-            // 纯换行/回车文本节点是 <br> 之间的格式噪声(浏览器不渲染),跳过,
+            // 纯换行文本节点是 <br> 之间的格式噪声(浏览器不渲染),跳过,
             // 否则 "…<br />\n…" 会渲染成两个换行,段间空白成倍放大
-            if raw.contains("\n") || raw.contains("\r"),
-               raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if raw.contains("\n"), raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 return
             }
-            // <br /> 后源文本残留的 \r\n:Discuz 已把回车转成 <br>,残留换行符
+            // <br /> 后源文本残留的换行:Discuz 已把回车转成 <br>,残留换行符
             // 会被再断一次行(浏览器按空白折叠忽略它),这里同样剥掉
             var content = Substring(raw)
-            if output.string.last == "\n" || output.string.last == "\r" {
-                content = content.drop { $0 == "\n" || $0 == "\r" || $0 == " " || $0 == "\t" }
+            if output.string.last == "\n" {
+                content = content.drop { $0 == "\n" || $0 == " " || $0 == "\t" }
                 if content.isEmpty { return }
             }
             let attributed = NSAttributedString(string: String(content), attributes: attributes(for: style))

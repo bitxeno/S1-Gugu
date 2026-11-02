@@ -160,9 +160,14 @@ enum BlockSplitter {
         let hasVisibleContent = attributed.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             || containsAttachment(attributed)
         if !hasVisibleContent {
-            // 纯换行块:这是作者在块级元素(图片/引用等)之间敲的空行,原样保留,
-            // 不裁剪——否则图片前后的 <br> 会一侧被删、一侧保留,排版失真。
-            blocks.append(.text(AttributedText(attributed)))
+            // 纯换行块:作者在块级元素(图片/引用等)之间敲的空行。作为独立块时,
+            // K 个换行会渲染成 K+1 个行框(末尾多出一个空行);块边界本身已占一行,
+            // 去掉最后一个换行,得到与浏览器一致的 K 行空白。
+            var text = attributed.string
+            if text.hasSuffix("\n") { text.removeLast() }
+            guard !text.isEmpty else { return }
+            let attrs = attributed.attributes(at: 0, effectiveRange: nil)
+            blocks.append(.text(AttributedText(NSAttributedString(string: text, attributes: attrs))))
             return
         }
         // 有内容的块:仅裁掉块尾换行(Discuz 在每段末尾补的 <br> 只会在块内多出空白行);

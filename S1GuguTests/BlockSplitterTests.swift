@@ -242,8 +242,10 @@ final class BlockSplitterTests: XCTestCase {
               case let .text(before) = blocks[imageIndex - 1] else {
             return XCTFail("图片前应保留空行块,实际:\(blocks)")
         }
-        XCTAssertTrue(before.value.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                      "图片前应为纯空行,实际:\(before.value.string.debugDescription)")
+        // 3 个 <br> 作为独立块渲染成 3 行空白:去掉块尾多余换行后为 2 个换行
+        // (CRLF 已归一,不能翻倍成 6 个换行)
+        XCTAssertEqual(before.value.string, "\n\n",
+                       "图片前 3 个 <br> 应渲染为 3 行空白(2 个换行),实际:\(before.value.string.debugDescription)")
         // 图片后的文本块保留作者的前导换行(<br/><br/>)
         guard let afterIndex = blocks.indices.first(where: { $0 > imageIndex }),
               case let .text(after) = blocks[afterIndex] else {
