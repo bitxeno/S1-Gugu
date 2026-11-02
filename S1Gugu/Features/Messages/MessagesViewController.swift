@@ -58,6 +58,8 @@ final class MessagesViewController: UIViewController {
         view.addSubview(header)
         header.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
+            // 头部内容区与系统导航栏同高(44pt),文字垂直居中位置一致
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.top).offset(44)
         }
 
         tabStack.axis = .horizontal
@@ -66,8 +68,8 @@ final class MessagesViewController: UIViewController {
         header.addSubview(tabStack)
         tabStack.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(6)
-            make.bottom.equalToSuperview().inset(12)
+            // 44pt 栏中心,对应系统导航标题的垂直位置
+            make.centerY.equalTo(view.safeAreaLayoutGuide.snp.top).offset(22)
         }
 
         // 下划线先加入 header,renderTabs 里再用约束对齐选中 Tab
