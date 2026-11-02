@@ -9,10 +9,16 @@ enum BlockSplitter {
         html: String,
         baseURL: URL?,
         quoteReplacer: ((String) -> String?)? = nil,
-        extraAttachments: [PostAttachment] = []
+        extraAttachments: [PostAttachment] = [],
+        attachmentsByAid: [Int: PostAttachment] = [:]
     ) -> [PostBlock] {
         guard !html.isEmpty else { return [] }
-        guard let document = try? SwiftSoup.parseBodyFragment(html),
+
+        // 先把正文里的 [attach]aid[/attach] / [attachimg]aid[/attachimg] BBCode 换成
+        // 与站点渲染一致的 <img>/<attach> 标签(登录态接口只在正文放 BBCode,附件数据在 attachments)。
+        let (preparedHTML, referencedAids) = replaceAttachTags(html, attachmentsByAid: attachmentsByAid)
+
+        guard let document = try? SwiftSoup.parseBodyFragment(preparedHTML),
               let body = document.body()
         else { return [fallbackBlock(fromHTML: html)] }
 
@@ -28,9 +34,15 @@ enum BlockSplitter {
                 return nil
             })
             for attachment in extraAttachments {
+                // 正文里已用 [attach]/[attachimg] 引用过的 aid 不再重复补
+                if attachment.aid > 0, referencedAids.contains(attachment.aid) { continue }
                 guard let url = attachment.realURL, !referenced.contains(url) else { continue }
                 if attachment.isImage {
-                    blocks.append(.image(PostImage(url: url, displayWidth: nil, displayHeight: nil)))
+                    blocks.append(.image(PostImage(
+                        url: url,
+                        displayWidth: attachment.pixelWidth,
+                        displayHeight: attachment.pixelHeight
+                    )))
                 } else {
                     blocks.append(.fileAttachment(PostFileAttachment(
                         name: attachment.filename ?? url.lastPathComponent,
@@ -41,6 +53,42 @@ enum BlockSplitter {
             }
         }
         return blocks
+    }
+
+    /// 把 [attach]aid[/attach] / [attachimg]aid[/attachimg] 替换为 HTML 标签:
+    /// 图片附件 → `<img src="…" width height>`,其余 → `<attach href name>…</attach>`。
+    /// 返回替换后的 HTML 及正文已引用的 aid 集合(供末尾去重)。
+    private static func replaceAttachTags(
+        _ html: String,
+        attachmentsByAid: [Int: PostAttachment]
+    ) -> (String, Set<Int>) {
+        guard html.contains("[attach") else { return (html, []) }
+        var referenced: Set<Int> = []
+        var result = html
+        // 两种写法都匹配;图片是否内嵌看附件元数据(attachimg=1),而不是标签名
+        for match in html.matches(of: /\[attach(?:img)?\](\d+)\[\/attach(?:img)?\]/) {
+            let full = String(match.0)
+            let aid = Int(String(match.1)) ?? 0
+            referenced.insert(aid)
+            let replacement: String
+            if let attachment = attachmentsByAid[aid], let url = attachment.realURL {
+                if attachment.isInlineImage || attachment.isImage {
+                    var attrs = "src=\"\(url.absoluteString)\""
+                    if let w = attachment.pixelWidth { attrs += " width=\"\(w)\"" }
+                    if let h = attachment.pixelHeight { attrs += " height=\"\(h)\"" }
+                    replacement = "<img \(attrs) />"
+                } else {
+                    let name = attachment.filename ?? url.lastPathComponent
+                    let size = attachment.filesize > 0 ? (formattedSize(attachment.filesize) ?? "") : ""
+                    replacement = "<attach href=\"\(url.absoluteString)\" name=\"\(name)\">\(name), \(size)</attach>"
+                }
+            } else {
+                // 无附件数据:退化为「附件」占位文本,至少不再暴露原始 BBCode
+                replacement = ""
+            }
+            result = result.replacingOccurrences(of: full, with: replacement)
+        }
+        return (result, referenced)
     }
 
     // MARK: - Walk

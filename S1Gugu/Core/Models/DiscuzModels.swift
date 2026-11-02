@@ -163,12 +163,18 @@ struct Thread: Sendable, Identifiable, Hashable {
 // MARK: - 帖子与附件
 
 struct PostAttachment: Sendable, Equatable, Hashable {
+    let aid: Int
     let url: String
     let attachment: String
     let isimage: String?
     let filename: String?
     let filesize: Int
     let ext: String?
+    /// 是否为正文内嵌图片附件(attachimg=1);决定 [attach] 替换成图片还是文件链接
+    let isInlineImage: Bool
+    /// 附件原始像素尺寸(来自服务端 width/height,可能缺失),用于图片比例占位
+    let pixelWidth: Int?
+    let pixelHeight: Int?
 
     var isImage: Bool { isimage != "0" }
     var realURL: URL? {
@@ -178,12 +184,16 @@ struct PostAttachment: Sendable, Equatable, Hashable {
     }
 
     init(json: JSON) {
+        aid = json["aid"].flexibleIntOrNil ?? 0
         url = json["url"].flexibleString
         attachment = json["attachment"].flexibleString
         isimage = json["isimage"].flexibleStringOrNil
         filename = json["filename"].flexibleStringOrNil
         filesize = json["filesize"].intValue
         ext = json["ext"].flexibleStringOrNil
+        isInlineImage = json["attachimg"].flexibleString == "1"
+        pixelWidth = json["width"].flexibleIntOrNil
+        pixelHeight = json["height"].flexibleIntOrNil
     }
 }
 

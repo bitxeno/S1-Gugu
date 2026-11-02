@@ -148,4 +148,67 @@ final class BlockSplitterTests: XCTestCase {
         }
         XCTAssertTrue(hasBody, "引用后的正文应作为文本块,实际:\(blocks)")
     }
+
+    /// 登录态:正文里的 [attach]aid[/attach] 应按附件元数据替换为图片块(而非字面量)
+    func testInlineAttachBBCodeBecomesImageBlock() {
+        let attachmentJSON = JSON([
+            "aid": "2166637",
+            "url": "https://img.stage1st.com/forum/",
+            "attachment": "202611/02/abc.png",
+            "isimage": "-1",
+            "attachimg": "1",
+            "filename": "op.png",
+            "filesize": "290470",
+            "width": "768",
+            "height": "432",
+        ])
+        let attachment = PostAttachment(json: attachmentJSON)
+        let html = "<br />[attach]2166637[/attach]<br />看这张图"
+        let blocks = BlockSplitter.split(
+            html: html,
+            baseURL: nil,
+            extraAttachments: [attachment],
+            attachmentsByAid: [2166637: attachment]
+        )
+        // 不应残留 BBCode 字面量
+        let joined = blocks.compactMap { block -> String? in
+            if case let .text(t) = block { return t.value.string }
+            return nil
+        }.joined()
+        XCTAssertFalse(joined.contains("[attach]"), "不应残留 [attach] 字面量,实际:\(joined)")
+        // 应有一个图片块,且带服务端宽高比例
+        guard let imageBlock = blocks.first(where: { if case .image = $0 { return true } else { return false } }),
+              case let .image(image) = imageBlock else {
+            return XCTFail("应包含图片块,实际:\(blocks)")
+        }
+        XCTAssertEqual(image.url.absoluteString, "https://img.stage1st.com/forum/202611/02/abc.png")
+        XCTAssertEqual(image.displayWidth, 768)
+        XCTAssertEqual(image.displayHeight, 432)
+        // 已内联引用的附件不应在末尾重复追加
+        XCTAssertEqual(blocks.filter { if case .image = $0 { return true } else { return false } }.count, 1,
+                       "图片附件不应重复,实际:\(blocks)")
+    }
+
+    /// [attachimg] 形式同样按附件元数据替换为图片
+    func testInlineAttachImgBBCodeBecomesImageBlock() {
+        let attachment = PostAttachment(json: JSON([
+            "aid": "99",
+            "url": "https://img.stage1st.com/forum/",
+            "attachment": "202611/02/x.jpg",
+            "isimage": "1",
+            "attachimg": "1",
+            "filename": "x.jpg",
+            "filesize": "1000",
+        ]))
+        let blocks = BlockSplitter.split(
+            html: "[attachimg]99[/attachimg]",
+            baseURL: nil,
+            extraAttachments: [attachment],
+            attachmentsByAid: [99: attachment]
+        )
+        guard case let .image(image)? = blocks.first else {
+            return XCTFail("应包含图片块,实际:\(blocks)")
+        }
+        XCTAssertEqual(image.url.absoluteString, "https://img.stage1st.com/forum/202611/02/x.jpg")
+    }
 }

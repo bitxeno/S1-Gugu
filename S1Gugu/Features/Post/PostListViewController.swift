@@ -523,13 +523,15 @@ final class PostListViewController: UIViewController {
             var blocksMap: [Int: [PostBlock]] = [:]
             var images: [PostImage] = []
             for post in posts {
-                // 全部附件(含图片附件)交给拆分器:移动 API 游客态不内嵌附件图,补到块尾
+                // 全部附件(含图片附件)交给拆分器:移动 API 游客态不内嵌附件图,补到块尾;
+                // 登录态正文里的 [attach] BBCode 用附件元数据替换为图片/文件链接。
                 let extras = post.attachments.sorted(by: { $0.key < $1.key }).map(\.value)
                 let blocks = BlockSplitter.split(
                     html: post.preprocessedHTML,
                     baseURL: baseURL,
                     quoteReplacer: quoteReplacer,
-                    extraAttachments: extras
+                    extraAttachments: extras,
+                    attachmentsByAid: post.attachments
                 )
                 blocksMap[post.pid] = blocks
                 for block in blocks {
