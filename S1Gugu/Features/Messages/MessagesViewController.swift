@@ -163,7 +163,8 @@ final class MessagesViewController: UIViewController {
         let textWidth = (tabTitles[selectedIndex] as NSString).size(withAttributes: [.font: font]).width
         underline.snp.remakeConstraints { make in
             make.centerX.equalTo(button)
-            make.top.equalTo(button.snp.bottom).offset(5)
+            // 按钮底部留有 8pt 点击热区内边距,上移抵消后让下划线贴近文字
+            make.top.equalTo(button.snp.bottom).offset(-5)
             make.width.equalTo(textWidth + 4)
             make.height.equalTo(3)
         }
