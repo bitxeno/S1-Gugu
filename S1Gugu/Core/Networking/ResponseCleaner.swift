@@ -7,6 +7,15 @@ import OSLog
 /// 3. 未加引号的 key 由 JSON5 兜底解码处理(见 S1APIClient)。
 enum ResponseCleaner {
 
+    /// HTML / inajax 响应解码:直接按 UTF-8 还原,**不做 JSON 修复**。
+    /// 早期这里误用 `clean()`(JSON 清洗),它会把「第一个 `{` 之前的含 `<` 前缀」整段截掉,
+    /// 而 Discuz 的 inajax HTML 形如 `<?xml…><root><![CDATA[<script>…{…}`,
+    /// 表单(id=postform、formhash 等)恰在第一个 `{` 之前,会被一并切掉,
+    /// 导致编辑器/投票等表单解析失败(典型表现:「获取编辑器信息失败」)。
+    static func htmlString(_ data: Data) -> String {
+        String(data: data, encoding: .utf8) ?? ""
+    }
+
     static func clean(_ data: Data) -> Data {
         guard var text = String(data: data, encoding: .utf8) else { return data }
 

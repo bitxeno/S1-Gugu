@@ -45,7 +45,7 @@ enum WebChannel {
 
     static func getEditorInfo(path: String, query: [String: String]) async throws -> PostEditorInfo {
         let raw = try await S1APIClient.shared.get(path: path, query: query)
-        let html = unwrapAjaxHTML(String(data: ResponseCleaner.clean(raw), encoding: .utf8) ?? "")
+        let html = unwrapAjaxHTML(ResponseCleaner.htmlString(raw))
         guard let info = parseEditorInfo(html, baseURL: S1APIClient.shared.baseURL) else {
             // 常见失败:无权限/需要登录时返回 alert_error 片段
             let alertMessage = extractAlertError(html)
@@ -120,7 +120,7 @@ enum WebChannel {
 
     static func submitForm(action: URL, fields: [String: String]) async throws -> AjaxResult {
         let raw = try await S1APIClient.shared.postFormToURL(url: action, form: fields)
-        let html = String(data: ResponseCleaner.clean(raw), encoding: .utf8) ?? ""
+        let html = ResponseCleaner.htmlString(raw)
         let result = parseAjaxResult(html)
         if !result.success {
             throw APIError.actionFailed(result.message)

@@ -445,7 +445,7 @@ struct DiscuzAPI: Sendable {
             query: ["mod": "misc", "action": "votepoll", "pollsubmit": "yes", "quickforward": "yes", "inajax": "1", "tid": String(tid)],
             form: form
         )
-        let html = String(data: ResponseCleaner.clean(raw), encoding: .utf8) ?? ""
+        let html = ResponseCleaner.htmlString(raw)
         let result = WebChannel.parseAjaxResult(html)
         if !result.success {
             throw APIError.actionFailed(result.message)
@@ -494,7 +494,7 @@ struct DiscuzAPI: Sendable {
             path: "study_daily_attendance-daily_attendance.html",
             query: ["inajax": "1", "formhash": formhash]
         )
-        let html = String(data: ResponseCleaner.clean(raw), encoding: .utf8) ?? ""
+        let html = ResponseCleaner.htmlString(raw)
         let result = WebChannel.parseAjaxResult(html)
         if result.success {
             return result.message.isEmpty ? "签到成功" : result.message
