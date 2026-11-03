@@ -159,6 +159,28 @@ enum Theme {
         }
     }
 
+    /// 卡片底色(个人空间等叠在页面上的圆角卡片)。
+    /// 奶黄浅色与页面同色(saraba_background),靠阴影分层,对齐 S1-Next 的 CardView;
+    /// 「默认」与深色用系统卡片色。
+    static var cardBackground: UIColor {
+        UIColor { trait in
+            if trait.userInterfaceStyle != .dark, AppSettings.lightTheme == .custard {
+                return UIColor(hex: 0xF6F7EB)
+            }
+            return UIColor.secondarySystemGroupedBackground.resolvedColor(with: trait)
+        }
+    }
+
+    /// 卡片阴影色:奶黄浅色用带一点橄榄的深色,让同色卡片可见;「默认」与深色用黑。
+    static var cardShadowColor: UIColor {
+        UIColor { trait in
+            if trait.userInterfaceStyle != .dark, AppSettings.lightTheme == .custard {
+                return UIColor(hex: 0x9A9A6E)
+            }
+            return .black
+        }
+    }
+
     /// 全局外观装配,SceneDelegate 建窗前调用一次;主题切换后由 applyThemeChange 重新调用
     @MainActor
     static func configureGlobalAppearance() {

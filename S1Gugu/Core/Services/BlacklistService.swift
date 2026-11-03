@@ -111,6 +111,23 @@ final class BlacklistService {
         await reload()
     }
 
+    /// 按 uid(优先)或用户名查找已存在的黑名单条目
+    func existingBlacklist(uid: Int, name: String?) -> BlackListEntry? {
+        if uid > 0, let byUid = snapshot.entries.first(where: { $0.uid == uid }) {
+            return byUid
+        }
+        if let name, !name.isEmpty {
+            return snapshot.entries.first { $0.name?.caseInsensitiveCompare(name) == .orderedSame }
+        }
+        return nil
+    }
+
+    /// 按 uid/用户名移除黑名单
+    func removeBlackList(uid: Int, name: String?) async {
+        guard let entry = existingBlacklist(uid: uid, name: name) else { return }
+        await removeBlackList(id: entry.id)
+    }
+
     // MARK: - 屏蔽词 CRUD
 
     func addBlackWord(word: String, level: Int) async {

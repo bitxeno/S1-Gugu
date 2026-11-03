@@ -13,6 +13,12 @@ final class UserHomeViewController: UIViewController {
     private var friendsSection: [Friend] = []
     private var profile: Profile?
 
+    /// 是否在浏览自己的个人空间(自己的空间不显示「加入黑名单」)
+    private var isSelf: Bool {
+        guard let current = SessionStore.shared.state.uid else { return false }
+        return Int(uid) == current
+    }
+
     init(uid: String) {
         self.uid = uid
         super.init(nibName: nil, bundle: nil)
@@ -27,7 +33,14 @@ final class UserHomeViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = Theme.background
 
-        navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "eye.slash"), menu: blackListMenu())
+        // 参考 S1-Next:个人空间右上角只有一个「塞抹布」入口(已拉黑时为「取抹布」)。
+        // 浏览自己的空间不显示拉黑入口。
+        if !isSelf {
+            navigationItem.rightBarButtonItem = UIBarButtonItem(
+                image: UIImage(systemName: "nosign"),
+                menu: blackListMenu()
+            )
+        }
 
         scrollView.alwaysBounceVertical = true
         view.addSubview(scrollView)
@@ -47,35 +60,76 @@ final class UserHomeViewController: UIViewController {
     }
 
     private func blackListMenu() -> UIMenu {
-        UIMenu(children: [
-            UIAction(title: "加入黑名单(隐藏)", attributes: .destructive) { [weak self] _ in
-                self?.addToBlacklist(postLevel: 1, forumLevel: 3)
-            },
-            UIAction(title: "加入黑名单(删除)", attributes: .destructive) { [weak self] _ in
-                self?.addToBlacklist(postLevel: 2, forumLevel: 4)
+        let uidValue = Int(uid) ?? 0
+        let name = profile?.username
+        // 对齐 S1-Next:已拉黑时为「取抹布」,否则为「塞抹布」
+        if BlacklistService.shared.existingBlacklist(uid: uidValue, name: name) != nil {
+            return UIMenu(children: [
+                UIAction(title: "取抹布", attributes: .destructive) { [weak self] _ in
+                    self?.removeFromBlacklist()
+                },
+            ])
+        }
+        return UIMenu(children: [
+            UIAction(title: "塞抹布", attributes: .destructive) { [weak self] _ in
+                self?.promptBlacklistRemark()
             },
         ])
     }
 
-    private func addToBlacklist(postLevel: Int, forumLevel: Int) {
+    /// 「塞抹布」前可填写备注(对齐 S1-Next 的备注弹窗),默认隐藏该用户的主题与回复。
+    private func promptBlacklistRemark() {
+        let alert = UIAlertController(title: "塞抹布", message: "可填写备注(可选)", preferredStyle: .alert)
+        alert.addTextField { $0.placeholder = "备注" }
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alert.addAction(UIAlertAction(title: "塞抹布", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            let remark = alert.textFields?.first?.text
+            self.addToBlacklist(postLevel: 1, forumLevel: 3,
+                                remark: (remark?.isEmpty ?? true) ? nil : remark)
+        })
+        present(alert, animated: true)
+    }
+
+    private func addToBlacklist(postLevel: Int, forumLevel: Int, remark: String?) {
         let uidValue = Int(uid) ?? 0
         let name = profile?.username
-        Task {
-            await BlacklistService.shared.addBlackList(uid: uidValue, name: name, postLevel: postLevel, forumLevel: forumLevel, remark: nil)
-            Toast.show("已加入黑名单", in: view)
+        Task { [weak self] in
+            await BlacklistService.shared.addBlackList(uid: uidValue, name: name, postLevel: postLevel, forumLevel: forumLevel, remark: remark)
+            self?.refreshBlacklistMenu()
+            if let view = self?.view { Toast.show("塞抹布成功", in: view) }
         }
+    }
+
+    private func removeFromBlacklist() {
+        let uidValue = Int(uid) ?? 0
+        let name = profile?.username
+        Task { [weak self] in
+            await BlacklistService.shared.removeBlackList(uid: uidValue, name: name)
+            self?.refreshBlacklistMenu()
+            if let view = self?.view { Toast.show("取抹布成功", in: view) }
+        }
+    }
+
+    /// 黑名单状态变化后刷新右上角菜单
+    private func refreshBlacklistMenu() {
+        guard !isSelf else { return }
+        navigationItem.rightBarButtonItem?.menu = blackListMenu()
     }
 
     private func load() async {
         let loading = makeCard(title: "加载中…")
         contentStack.addArrangedSubview(loading)
         do {
+            // 先确保黑名单快照就绪,右上角菜单才能正确显示「加入/移出」
+            await BlacklistService.shared.reloadIfNeeded()
             async let profileTask = DiscuzAPI.shared.profile(uid: uid)
             async let friendsTask = DiscuzAPI.shared.friends(uid: uid)
             let (fetchedProfile, friends) = try await (profileTask, friendsTask)
             self.profile = fetchedProfile
             self.friendsSection = friends
             render(fetchedProfile, friends: friends)
+            refreshBlacklistMenu()
         } catch {
             loading.removeFromSuperview()
             let errorCard = makeCard(title: "加载失败", detail: (error as? LocalizedError)?.errorDescription)
@@ -220,8 +274,14 @@ final class UserHomeViewController: UIViewController {
     @discardableResult
     private func wrapInCard(_ stack: UIStackView) -> UIView {
         let card = UIView()
-        card.backgroundColor = .secondarySystemGroupedBackground
+        // 卡片底色跟随主题(奶黄 = 与页面同色,靠下方阴影分层,对齐 S1-Next 的 CardView),
+        // 不再固定用白色 secondarySystemGroupedBackground。
+        card.backgroundColor = Theme.cardBackground
         card.layer.cornerRadius = Theme.cardCornerRadius
+        card.layer.shadowColor = Theme.cardShadowColor.cgColor
+        card.layer.shadowOpacity = 0.12
+        card.layer.shadowRadius = 6
+        card.layer.shadowOffset = CGSize(width: 0, height: 2)
         card.addSubview(stack)
         stack.snp.makeConstraints { make in
             make.edges.equalToSuperview().inset(14)
