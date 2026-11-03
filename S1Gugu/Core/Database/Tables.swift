@@ -114,3 +114,17 @@ struct ResponseCacheEntry: Identifiable, Sendable, Equatable, Hashable {
 
     var id: String { key }
 }
+
+// MARK: - 发帖 / 回复编辑草稿
+
+@Table("editordraft")
+struct EditorDraftEntry: Identifiable, Sendable, Equatable, Hashable {
+    @Column(primaryKey: true)
+    var key: String
+    var subject: String = ""
+    var body: String = ""
+    var extraValue: String?
+    var timestamp: Int = 0
+
+    var id: String { key }
+}

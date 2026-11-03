@@ -15,7 +15,7 @@ final class AppDatabase: Sendable {
 
     let writer: any DatabaseWriter
 
-    private init(writer: any DatabaseWriter) {
+    init(writer: any DatabaseWriter) {
         self.writer = writer
     }
 
@@ -126,6 +126,17 @@ final class AppDatabase: Sendable {
                   "forumId" INTEGER PRIMARY KEY,
                   "name" TEXT NOT NULL DEFAULT '',
                   "sortOrder" INTEGER NOT NULL DEFAULT 0
+                ) STRICT
+                """).execute(database)
+        }
+        migrator.registerMigration("v7-editor-drafts") { database in
+            try #sql("""
+                CREATE TABLE "editordraft" (
+                  "key" TEXT PRIMARY KEY,
+                  "subject" TEXT NOT NULL DEFAULT '',
+                  "body" TEXT NOT NULL DEFAULT '',
+                  "extraValue" TEXT,
+                  "timestamp" INTEGER NOT NULL DEFAULT 0
                 ) STRICT
                 """).execute(database)
         }

@@ -11,6 +11,7 @@ class EditorViewController: UIViewController, UITextViewDelegate {
     let textView = UITextView()
     let subjectField = UITextField()
     private let bottomBar = UIStackView()
+    private let draftBoxButton = UIButton(type: .system)
     private let emojiButton = UIButton(type: .system)
     private let photoButton = UIButton(type: .system)
     let statusLabel = UILabel()
@@ -24,9 +25,18 @@ class EditorViewController: UIViewController, UITextViewDelegate {
     private(set) var attachmentAids: [Int] = []
     private var isUploading = false
     private var isSending = false
+    private var hasSentSuccessfully = false
+    private var isLoadingDraft = false
+    private var editedWhileLoadingDraft = false
+    private var draftSaveTask: Task<Void, Never>?
 
     /// 草稿 key(nil 则不存草稿,如编辑模式)
     var draftKey: String?
+    /// 是否显示并持久化标题字段。
+    var includesSubjectInDraft: Bool { false }
+    /// 子类按当前编辑对象筛选可恢复草稿。
+    func loadDraftPickerEntries() async -> [EditorDraftEntry] { [] }
+    private var loadedDraftKey: String?
 
     /// 正文是否允许为空(编辑/新主题必须非空)
     var allowsEmptyBody = false
@@ -36,6 +46,12 @@ class EditorViewController: UIViewController, UITextViewDelegate {
         view.backgroundColor = Theme.contentBackground
         buildUI()
         loadDraft()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(saveDraftForBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
         Task {
             await loadEditorContext()
         }
@@ -52,13 +68,24 @@ class EditorViewController: UIViewController, UITextViewDelegate {
         subjectField.borderStyle = .roundedRect
         subjectField.font = .preferredFont(forTextStyle: .body)
         subjectField.adjustsFontForContentSizeCategory = true
-        subjectField.isHidden = true // 子类按需显示
+        subjectField.isHidden = !includesSubjectInDraft
+        subjectField.addTarget(self, action: #selector(subjectDidChange(_:)), for: .editingChanged)
 
         textView.font = .preferredFont(forTextStyle: .body)
         textView.adjustsFontForContentSizeCategory = true
         textView.backgroundColor = .clear
         textView.delegate = self
         textView.textContainerInset = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+
+        draftBoxButton.setImage(UIImage(systemName: "tray.full"), for: .normal)
+        draftBoxButton.accessibilityLabel = "草稿箱"
+        draftBoxButton.accessibilityHint = "选择并恢复之前保存的草稿"
+        draftBoxButton.addAction(UIAction { [weak self] _ in
+            self?.showDraftPicker()
+        }, for: .touchUpInside)
+        draftBoxButton.snp.makeConstraints { make in
+            make.width.height.equalTo(44)
+        }
 
         emojiButton.setImage(UIImage(systemName: "face.smiling"), for: .normal)
         emojiButton.accessibilityLabel = "表情"
@@ -77,6 +104,7 @@ class EditorViewController: UIViewController, UITextViewDelegate {
         bottomBar.alignment = .center
         bottomBar.layoutMargins = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
         bottomBar.isLayoutMarginsRelativeArrangement = true
+        bottomBar.addArrangedSubview(draftBoxButton)
         bottomBar.addArrangedSubview(emojiButton)
         bottomBar.addArrangedSubview(photoButton)
         bottomBar.addArrangedSubview(statusLabel)
@@ -180,11 +208,14 @@ class EditorViewController: UIViewController, UITextViewDelegate {
         isSending = true
         statusLabel.text = "发送中…"
         setButtonsEnabled(false)
+        let submittedDraft = currentDraft
         Task { [weak self] in
             guard let self else { return }
             do {
                 let message = try await self.performSend()
-                DraftStore.clearIfMatches(self.draftKey, self.bodyText)
+                self.hasSentSuccessfully = true
+                self.draftSaveTask?.cancel()
+                await DraftStore.clearIfMatches(self.draftKey, submittedDraft)
                 self.isSending = false
                 self.setButtonsEnabled(true)
                 self.statusLabel.text = nil
@@ -208,23 +239,137 @@ class EditorViewController: UIViewController, UITextViewDelegate {
 
     private func setButtonsEnabled(_ enabled: Bool) {
         navigationItem.rightBarButtonItem?.isEnabled = enabled
+        draftBoxButton.isEnabled = enabled
         emojiButton.isEnabled = enabled
         photoButton.isEnabled = enabled
+        (navigationItem.titleView as? UIButton)?.isEnabled = enabled
+        textView.isEditable = enabled
+        subjectField.isEnabled = enabled
     }
 
     // MARK: - 草稿
 
-    private func loadDraft() {
-        guard let draftKey else { return }
-        let draft = DraftStore.load(draftKey)
-        if !draft.isEmpty {
-            textView.text = draft
+    var draftExtraValue: String? { nil }
+
+    private func showDraftPicker() {
+        guard !isLoadingDraft else { return }
+        draftBoxButton.isEnabled = false
+        Task { [weak self] in
+            guard let self else { return }
+            let entries = await loadDraftPickerEntries()
+            self.draftBoxButton.isEnabled = true
+            guard self.presentedViewController == nil else { return }
+            guard !entries.isEmpty else {
+                Toast.show("暂无可恢复的草稿", in: self.view)
+                return
+            }
+            self.presentDraftPicker(entries)
         }
     }
 
-    func textViewDidChange(_ textView: UITextView) {
+    private func presentDraftPicker(_ entries: [EditorDraftEntry]) {
+        let alert = UIAlertController(title: "草稿箱", message: nil, preferredStyle: .actionSheet)
+        for entry in entries {
+            let subject = entry.subject.trimmingCharacters(in: .whitespacesAndNewlines)
+            let bodyPreview = entry.body.trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = subject.isEmpty ? String(bodyPreview.prefix(36)) : subject
+            let date = Date(timeIntervalSince1970: TimeInterval(entry.timestamp))
+            let formatter = DateFormatter()
+            formatter.locale = Locale.current
+            formatter.dateStyle = .short
+            formatter.timeStyle = .short
+            let subtitle = formatter.string(from: date)
+            alert.addAction(UIAlertAction(title: "\(title.isEmpty ? "无标题草稿" : title) · \(subtitle)", style: .default) { [weak self] _ in
+                self?.restoreDraft(entry)
+            })
+        }
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = draftBoxButton
+            popover.sourceRect = draftBoxButton.bounds
+        }
+        present(alert, animated: true)
+    }
+
+    private func restoreDraft(_ entry: EditorDraftEntry) {
+        guard !isSending else { return }
+        draftSaveTask?.cancel()
+        let draft = EditorDraft(subject: entry.subject, body: entry.body, extraValue: entry.extraValue)
+        isLoadingDraft = true
+        if includesSubjectInDraft { subjectField.text = draft.subject }
+        textView.text = draft.body
+        applyDraftExtraValue(draft.extraValue)
+        editedWhileLoadingDraft = false
+        isLoadingDraft = false
+        saveDraft()
+        textView.becomeFirstResponder()
+    }
+
+
+    private var currentDraft: EditorDraft {
+        EditorDraft(subject: includesSubjectInDraft ? (subjectField.text ?? "") : "",
+                    body: textView.text ?? "",
+                    extraValue: draftExtraValue)
+    }
+
+    private func loadDraft() {
         guard let draftKey else { return }
-        DraftStore.save(draftKey, textView.text ?? "")
+        loadedDraftKey = draftKey
+        isLoadingDraft = true
+        Task { [weak self] in
+            guard let self else { return }
+            let draft = await DraftStore.load(draftKey)
+            if !self.editedWhileLoadingDraft, let draft, draft.hasContent {
+                if self.includesSubjectInDraft { self.subjectField.text = draft.subject }
+                self.textView.text = draft.body
+                self.applyDraftExtraValue(draft.extraValue)
+            }
+            self.isLoadingDraft = false
+            if self.editedWhileLoadingDraft { self.saveDraft() }
+        }
+    }
+
+    func applyDraftExtraValue(_ value: String?) {}
+
+    func saveDraft() {
+        guard !hasSentSuccessfully, let draftKey = loadedDraftKey else { return }
+        if isLoadingDraft {
+            editedWhileLoadingDraft = true
+            return
+        }
+        draftSaveTask?.cancel()
+        let draft = currentDraft
+        draftSaveTask = Task { [weak self] in
+            guard let self else { return }
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            if draft.hasContent {
+                _ = await DraftStore.save(draftKey, draft)
+            } else {
+                await DraftStore.clear(draftKey)
+            }
+        }
+    }
+
+    @objc private func saveDraftForBackground() {
+        saveDraft()
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        saveDraft()
+    }
+
+    @objc private func subjectDidChange(_ field: UITextField) {
+        saveDraft()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        saveDraft()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - 图片上传
@@ -395,16 +540,6 @@ extension EditorViewController: PHPickerViewControllerDelegate {
             let images = collector.all
             guard let self, !images.isEmpty else { return }
             self.uploadAndInsert(images)
-        }
-    }
-}
-
-extension DraftStore {
-    /// 发送成功且内容与草稿一致时才清空
-    static func clearIfMatches(_ key: String?, _ text: String) {
-        guard let key else { return }
-        if load(key) == text || text.isEmpty {
-            clear(key)
         }
     }
 }

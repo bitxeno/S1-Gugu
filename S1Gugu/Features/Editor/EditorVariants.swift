@@ -13,6 +13,10 @@ final class ReplyViewController: EditorViewController {
     private let threadId: Int
     private var quote: Quote?
 
+    override func loadDraftPickerEntries() async -> [EditorDraftEntry] {
+        await DraftStore.replyDrafts(threadId: threadId)
+    }
+
     init(threadId: Int, quotePost: Post? = nil) {
         self.threadId = threadId
         if let quotePost {
@@ -23,7 +27,7 @@ final class ReplyViewController: EditorViewController {
             )
         }
         super.init(nibName: nil, bundle: nil)
-        draftKey = "reply.\(threadId)"
+        draftKey = "reply.\(threadId).\(quotePost?.pid ?? 0)"
         title = quote == nil ? "回复" : "引用回复"
     }
 
@@ -98,7 +102,6 @@ final class ReplyViewController: EditorViewController {
             quoteContext = try await DiscuzAPI.shared.replyQuoteContext(tid: threadId, repQuotePid: quote.pid)
         }
         try await DiscuzAPI.shared.reply(tid: threadId, message: message, quote: quoteContext)
-        DraftStore.clear(draftKey ?? "")
         return "回复成功"
     }
 }
@@ -109,6 +112,16 @@ final class NewThreadViewController: EditorViewController {
 
     private let forumId: Int
     private var selectedTypeId: String?
+    override var includesSubjectInDraft: Bool { true }
+    override var draftExtraValue: String? { selectedTypeId }
+
+    override func loadDraftPickerEntries() async -> [EditorDraftEntry] {
+        await DraftStore.newThreadDrafts()
+    }
+
+    override func applyDraftExtraValue(_ value: String?) {
+        selectedTypeId = value
+    }
 
     init(forumId: Int, forumName: String?) {
         self.forumId = forumId
@@ -121,11 +134,6 @@ final class NewThreadViewController: EditorViewController {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        subjectField.isHidden = false
-    }
-
     override func loadEditorContext() async {
         do {
             let info = try await WebChannel.getEditorInfo(
@@ -136,9 +144,10 @@ final class NewThreadViewController: EditorViewController {
             if !info.threadTypes.isEmpty {
                 let types = info.threadTypes
                 let selectedIndex = min(info.selectedTypeIndex, types.count - 1)
-                let chosen = types[max(selectedIndex, 0)]
-                if !chosen.id.isEmpty {
-                    selectedTypeId = chosen.id
+                let defaultType = types[max(selectedIndex, 0)]
+                let chosen = types.first(where: { $0.id == selectedTypeId }) ?? defaultType
+                if selectedTypeId == nil || !types.contains(where: { $0.id == selectedTypeId }) {
+                    selectedTypeId = chosen.id.isEmpty ? nil : chosen.id
                 }
                 navigationItem.titleView = makeTypeMenu(types: types, selected: chosen)
             }
@@ -155,6 +164,7 @@ final class NewThreadViewController: EditorViewController {
         button.menu = UIMenu(children: types.filter { !$0.id.isEmpty }.map { type in
             UIAction(title: type.name, state: type.id == selected.id ? .on : .off) { [weak self] _ in
                 self?.selectedTypeId = type.id
+                self?.saveDraft()
                 button.setTitle("\(type.name) ▾", for: .normal)
             }
         })
@@ -184,7 +194,6 @@ final class NewThreadViewController: EditorViewController {
             formhash: editorInfo?.formhash,
             posttime: editorInfo?.posttime
         )
-        DraftStore.clear(draftKey ?? "")
         return "发布成功"
     }
 }
