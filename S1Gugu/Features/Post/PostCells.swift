@@ -13,6 +13,8 @@ struct PostHeaderModel: Hashable, Sendable {
     let dateTimeText: String
     let floor: Int?
     let isOp: Bool
+    /// 非首楼在楼层顶部画一条细分隔线,配合楼层间距强化相邻回复的边界
+    let showsTopDivider: Bool
 }
 
 final class PostHeaderCell: UICollectionViewCell {
@@ -23,6 +25,7 @@ final class PostHeaderCell: UICollectionViewCell {
     private let opBadgeLabel = UILabel()
     private let floorLabel = UILabel()
     private let metaLabel = UILabel()
+    private let topDivider = UIView()
 
     var onAvatarTap: (() -> Void)?
 
@@ -64,6 +67,10 @@ final class PostHeaderCell: UICollectionViewCell {
         metaLabel.textColor = Theme.tertiaryLabel
         metaLabel.adjustsFontForContentSizeCategory = true
 
+        // 楼层顶部分隔线:仅非首楼显示,进一步拉开相邻回复的视觉边界
+        topDivider.backgroundColor = .separator
+        topDivider.isHidden = true
+
         let nameRow = UIStackView(arrangedSubviews: [authorLabel, opBadge])
         nameRow.axis = .horizontal
         nameRow.spacing = 6
@@ -85,6 +92,12 @@ final class PostHeaderCell: UICollectionViewCell {
         contentView.addSubview(avatarView)
         contentView.addSubview(textStack)
         contentView.addSubview(floorLabel)
+        contentView.addSubview(topDivider)
+        topDivider.snp.makeConstraints { make in
+            make.leading.trailing.equalTo(contentView.layoutMarginsGuide)
+            make.top.equalToSuperview()
+            make.height.equalTo(1.0 / UIScreen.main.scale)
+        }
         avatarView.snp.makeConstraints { make in
             make.leading.equalTo(contentView.layoutMarginsGuide.snp.leading)
             make.top.equalToSuperview().inset(12)
@@ -112,6 +125,7 @@ final class PostHeaderCell: UICollectionViewCell {
 
     func configure(_ model: PostHeaderModel) {
         authorLabel.text = model.author
+        topDivider.isHidden = !model.showsTopDivider
 
         // 徽标在 configure 里着色:主题切换/深浅模式时注册 cell 会重走配置
         opBadge.layer.borderColor = Theme.accent.withAlphaComponent(0.45).cgColor

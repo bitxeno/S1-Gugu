@@ -158,7 +158,7 @@ final class PostListViewController: UIViewController {
 
     private func setupCollectionView() {
         let layout = UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
-            self?.makeSectionLayout(environment: environment) ?? NSCollectionLayoutSection(group: .vertical(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(1)), subitems: []))
+            self?.makeSectionLayout(sectionIndex: sectionIndex, environment: environment) ?? NSCollectionLayoutSection(group: .vertical(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(1)), subitems: []))
         }
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -258,12 +258,21 @@ final class PostListViewController: UIViewController {
         view.bringSubviewToFront(pagerBar)
     }
 
-    private func makeSectionLayout(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
+    private func makeSectionLayout(sectionIndex: Int, environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
         var config = UICollectionLayoutListConfiguration(appearance: .plain)
         config.showsSeparators = false
         // list section 默认自绘系统背景,必须显式指定,否则盖住页面米白
         config.backgroundColor = Theme.contentBackground
-        return NSCollectionLayoutSection.list(using: config, layoutEnvironment: environment)
+        let section = NSCollectionLayoutSection.list(using: config, layoutEnvironment: environment)
+        // 楼层之间留出空白,让相邻回复界限清晰(末楼不再追加,避免与底部留白叠加)
+        let isLast = sectionIndex >= posts.count - 1
+        section.contentInsets = NSDirectionalEdgeInsets(
+            top: 0,
+            leading: 0,
+            bottom: isLast ? 0 : Theme.floorSpacing,
+            trailing: 0
+        )
+        return section
     }
 
     private func setupPageNavigation() {
@@ -565,7 +574,8 @@ final class PostListViewController: UIViewController {
                 avatarURL: post.avatarURL,
                 dateTimeText: post.dateTimeText,
                 floor: post.floor,
-                isOp: post.isOp
+                isOp: post.isOp,
+                showsTopDivider: !post.isFirst
             )
             snapshot.appendItems([.header(header)], toSection: post.pid)
             if post.isFirst, let vote = currentVote {

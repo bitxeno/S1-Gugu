@@ -200,6 +200,8 @@ enum Theme {
 
     static let cardCornerRadius: CGFloat = 10
     static let contentInset: CGFloat = 16
+    /// 帖子详情楼层之间的空白高度:让相邻回复有清晰界限
+    static let floorSpacing: CGFloat = 20
 }
 
 // MARK: - 扁平列表 cell
