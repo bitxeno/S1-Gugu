@@ -1,5 +1,6 @@
 import UIKit
 import SnapKit
+import Kingfisher
 
 /// Tab 4「我的」:账号、历史、过滤、设置入口。
 @MainActor
@@ -31,6 +32,12 @@ final class MeViewController: UIViewController {
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "row")
         view.addSubview(tableView)
 
+        // 添加账号 / 切换账号 / 退出登录统一收进导航栏最右侧的菜单
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "ellipsis.circle"),
+            menu: makeAccountMenu()
+        )
+
         NotificationCenter.default.addObserver(
             self, selector: #selector(sessionChanged),
             name: SessionStore.didChangeNotification, object: nil
@@ -39,6 +46,55 @@ final class MeViewController: UIViewController {
 
     @objc private func sessionChanged() {
         tableView.reloadData()
+        // 登录态变化后同步右上角菜单(切换 / 退出登录是否可用)
+        navigationItem.rightBarButtonItem?.menu = makeAccountMenu()
+    }
+
+    /// 右上角账号操作菜单:切换账号 / 添加账号 / 退出登录。
+    private func makeAccountMenu() -> UIMenu {
+        var children: [UIMenuElement] = []
+
+        if SessionStore.shared.state.isLoggedIn {
+            // 已保存的其他账号在展开时异步读取,避免 await 阻塞菜单构建
+            children.append(UIMenu(title: "切换账号", children: [
+                UIDeferredMenuElement.uncached { [weak self] completion in
+                    Task { @MainActor in
+                        guard let self else { completion([]); return }
+                        let accounts = await AccountService.shared.list()
+                        let currentName = SessionStore.shared.state.name
+                        let actions = accounts
+                            .filter { $0.name != currentName }
+                            .map { entry in
+                                UIAction(title: entry.name) { [weak self] _ in
+                                    self?.switchAccount(to: entry.name)
+                                }
+                            }
+                        completion(actions.isEmpty
+                            ? [UIAction(title: "暂无其他账号", attributes: .disabled) { _ in }]
+                            : actions)
+                    }
+                }
+            ]))
+        }
+
+        children.append(UIAction(
+            title: "添加账号",
+            image: UIImage(systemName: "person.badge.plus")
+        ) { [weak self] _ in
+            self?.navigationController?.pushViewController(LoginViewController(), animated: true)
+        })
+
+        if SessionStore.shared.state.isLoggedIn {
+            children.append(UIAction(
+                title: "退出登录",
+                image: UIImage(systemName: "rectangle.portrait.and.arrow.right"),
+                attributes: .destructive
+            ) { [weak self] _ in
+                self?.logoutConfirmation()
+            })
+        }
+
+        return UIMenu(children: children)
     }
 
     private func configure(cell: UITableViewCell, row: Row) {
@@ -46,6 +102,8 @@ final class MeViewController: UIViewController {
         cell.accessoryType = .disclosureIndicator
 
         switch row {
+        case .account:
+            break   // 账号行由 configureAccountCell 单独处理
         case .backup:
             config.text = "帖子备份"
             config.secondaryText = "已备份的帖子可离线阅读"
@@ -58,20 +116,6 @@ final class MeViewController: UIViewController {
         case .darkroom:
             config.text = "小黑屋"
             config.image = UIImage(systemName: "figure.fall")
-        case .account:
-            let state = SessionStore.shared.state
-            if state.isLoggedIn {
-                config.text = state.name ?? "已登录"
-                config.secondaryText = "UID \(state.uid ?? 0)"
-                config.image = UIImage(systemName: "person.crop.circle.fill")
-            } else {
-                config.text = "未登录"
-                config.secondaryText = "点按登录以使用收藏、私信等功能"
-                config.image = UIImage(systemName: "person.crop.circle")
-            }
-            config.imageProperties.tintColor = Theme.accent
-            config.secondaryTextProperties.color = Theme.secondaryLabel
-            cell.accessoryType = state.isLoggedIn ? .none : .disclosureIndicator
         case .history:
             config.text = "浏览历史"
             config.image = UIImage(systemName: "clock.arrow.circlepath")
@@ -119,36 +163,6 @@ final class MeViewController: UIViewController {
         }
     }
 
-    /// 账号面板:切换账号 / 添加账号 / 登出
-    private func showAccountPanel() {
-        Task { [weak self] in
-            guard let self else { return }
-            let accounts = await AccountService.shared.list()
-            let currentName = SessionStore.shared.state.name
-
-            let alert = UIAlertController(title: "账号", message: "当前:\(currentName ?? "-")", preferredStyle: .actionSheet)
-
-            for entry in accounts where entry.name != currentName {
-                alert.addAction(UIAlertAction(title: "切换到 \(entry.name)", style: .default) { _ in
-                    self.switchAccount(to: entry.name)
-                })
-            }
-            alert.addAction(UIAlertAction(title: "添加账号", style: .default) { _ in
-                self.navigationController?.pushViewController(LoginViewController(), animated: true)
-            })
-            alert.addAction(UIAlertAction(title: "登出当前账号", style: .destructive) { _ in
-                self.logoutConfirmation()
-            })
-            alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-            // iPad 锚点
-            if let popover = alert.popoverPresentationController {
-                popover.sourceView = self.view
-                popover.sourceRect = CGRect(x: self.view.bounds.midX, y: 120, width: 1, height: 1)
-            }
-            self.present(alert, animated: true)
-        }
-    }
-
     private func switchAccount(to name: String) {
         Task { [weak self] in
             guard let self else { return }
@@ -157,6 +171,61 @@ final class MeViewController: UIViewController {
                 Toast.show("已切换到 \(name)", in: self.view ?? UIView())
             } catch {
                 Toast.show((error as? LocalizedError)?.errorDescription ?? "切换失败", in: self.view ?? UIView())
+            }
+        }
+    }
+
+    // MARK: - 账号行
+
+    /// 账号行:真实头像 + 账号名 + UID,点击进入个人空间。
+    /// 添加账号 / 切换 / 退出登录统一放在导航栏最右侧菜单。
+    private func configureAccountCell(_ cell: UITableViewCell) {
+        cell.applyFlatListBackground()
+
+        var config = cell.defaultContentConfiguration()
+        config.imageProperties.cornerRadius = 22
+        config.imageProperties.maximumSize = CGSize(width: 44, height: 44)
+        config.imageProperties.reservedLayoutSize = CGSize(width: 44, height: 44)
+
+        let state = SessionStore.shared.state
+        if let uid = state.uid, uid != 0 {
+            config.text = state.name ?? "已登录"
+            config.secondaryText = "UID \(uid) · 进入个人空间"
+            config.image = cachedAvatar(uid: uid)
+            loadAvatarIfNeeded(uid: uid)
+        } else {
+            config.text = "未登录"
+            config.secondaryText = "点按登录以使用收藏、私信等功能"
+            config.image = UIImage(systemName: "person.crop.circle")
+            config.imageProperties.tintColor = Theme.accent
+        }
+        config.secondaryTextProperties.color = Theme.secondaryLabel
+        cell.accessoryType = .disclosureIndicator
+        cell.contentConfiguration = config
+    }
+
+    /// 已发起预取的 uid,避免重复请求
+    private var avatarPrefetchingUIDs: Set<Int> = []
+
+    /// 从图片缓存同步取头像(未命中回退默认头像)
+    private func cachedAvatar(uid: Int) -> UIImage {
+        guard let url = AvatarURL.url(uid: uid) else { return DefaultAvatar.image }
+        return ImageCache.default.retrieveImageInMemoryCache(forKey: url.absoluteString) ?? DefaultAvatar.image
+    }
+
+    /// 未命中缓存时后台预取,成功后仅刷新账号行
+    private func loadAvatarIfNeeded(uid: Int) {
+        guard let url = AvatarURL.url(uid: uid) else { return }
+        if ImageCache.default.retrieveImageInMemoryCache(forKey: url.absoluteString) != nil { return }
+        guard !avatarPrefetchingUIDs.contains(uid) else { return }
+        avatarPrefetchingUIDs.insert(uid)
+        KingfisherManager.shared.retrieveImage(with: url) { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                self.avatarPrefetchingUIDs.remove(uid)
+                if case .success = result, SessionStore.shared.state.uid == uid {
+                    self.tableView.reloadRows(at: [IndexPath(row: 0, section: 0)], with: .none)
+                }
             }
         }
     }
@@ -202,11 +271,16 @@ extension MeViewController: UITableViewDataSource, UITableViewDelegate {
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        // 账号行带真实头像,单独配置;其余行走通用 configure
+        if indexPath.section == 0 {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "row", for: indexPath)
+            configureAccountCell(cell)
+            return cell
+        }
         let cell = tableView.dequeueReusableCell(withIdentifier: "row", for: indexPath)
         cell.applyFlatListBackground()
         let row: Row
         switch indexPath.section {
-        case 0: row = .account
         case 1: row = indexPath.row == 0 ? .history : .backup
         case 2: row = indexPath.row == 0 ? .blacklist : .blackWord
         case 3: row = communityRows[indexPath.row]
@@ -228,8 +302,12 @@ extension MeViewController: UITableViewDataSource, UITableViewDelegate {
         }
         switch row {
         case .account:
-            if SessionStore.shared.state.isLoggedIn {
-                showAccountPanel()
+            if let uid = SessionStore.shared.state.uid, uid != 0 {
+                // 点击账号行进入个人空间(头像 / 签名 / 好友 / TA 的主题与回复)
+                navigationController?.pushViewController(
+                    UserHomeViewController(uid: String(uid)),
+                    animated: true
+                )
             } else {
                 navigationController?.pushViewController(LoginViewController(), animated: true)
             }
