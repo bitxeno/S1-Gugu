@@ -55,6 +55,9 @@ final class FavoritesListViewController: UIViewController {
     private var page = 0
     private var canLoadMore = true
     private var isLoading = false
+    /// 已读主题 ID 与上次浏览时的回复数,用于回复数徽标与「+N」
+    private var readThreadIds: Set<Int> = []
+    private var lastReplyCounts: [Int: Int] = [:]
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -69,12 +72,23 @@ final class FavoritesListViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        if SessionStore.shared.state.isLoggedIn, favorites.isEmpty {
-            reloadFirstPage()
-        } else {
-            renderLoginState()
-            reconfigureFavoriteCells()
+        Task { [weak self] in
+            guard let self else { return }
+            await self.reloadReadState()
+            if SessionStore.shared.state.isLoggedIn, self.favorites.isEmpty {
+                self.reloadFirstPage()
+            } else {
+                self.renderLoginState()
+                self.reconfigureFavoriteCells()
+            }
         }
+    }
+
+    private func reloadReadState() async {
+        let history = await HistoryService.entries()
+        readThreadIds = Set(history.map(\.threadId))
+        let counts = await DbThreadService.entries(threadIds: readThreadIds.sorted())
+        lastReplyCounts = counts.mapValues(\.lastCountWhenView)
     }
 
     /// 相对时间会随停留时间变旧,回到列表时重跑一次 cell 配置
@@ -91,8 +105,11 @@ final class FavoritesListViewController: UIViewController {
         page = 0
         canLoadMore = true
         renderLoginState()
-        if SessionStore.shared.state.isLoggedIn {
-            reloadFirstPage()
+        guard SessionStore.shared.state.isLoggedIn else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            await self.reloadReadState()
+            self.reloadFirstPage()
         }
     }
 
@@ -102,7 +119,12 @@ final class FavoritesListViewController: UIViewController {
         // list section 默认自绘系统背景,必须显式指定,否则盖住页面米白
         listConfig.backgroundColor = Theme.background
         let layout = UICollectionViewCompositionalLayout { _, environment in
-            NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
+            let section = NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
+            // insetGrouped 的 section 横向 inset 会与 cell 的 16pt 内容边距叠加,
+            // 归零后左右回到系统标准的 16pt 内容边距。
+            section.contentInsets.leading = 0
+            section.contentInsets.trailing = 0
+            return section
         }
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -113,7 +135,8 @@ final class FavoritesListViewController: UIViewController {
         refresh.addAction(UIAction { [weak self] _ in self?.reloadFirstPage() }, for: .valueChanged)
         collectionView.refreshControl = refresh
 
-        let registration = UICollectionView.CellRegistration<ThreadCell, Favourite> { cell, _, favorite in
+        let registration = UICollectionView.CellRegistration<ThreadCell, Favourite> { [weak self] cell, _, favorite in
+            guard let self else { return }
             let timeText = RelativeTimeFormatter.friendlyText(from: favorite.dateline)
                 ?? Thread.formatDate(favorite.dateline)
             let timeMeta = timeText.isEmpty ? "" : "收藏于 \(timeText)"
@@ -121,7 +144,17 @@ final class FavoritesListViewController: UIViewController {
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
                 .joined(separator: " · ")
-            cell.configure(title: favorite.displayName, meta: meta, replyCount: favorite.replyCount)
+            let lastCount = self.lastReplyCounts[favorite.threadId] ?? 0
+            let newCount = favorite.replyCount > lastCount && lastCount > 0
+                ? favorite.replyCount - lastCount
+                : 0
+            cell.configure(
+                title: favorite.displayName,
+                meta: meta,
+                replyCount: favorite.replyCount,
+                newReplyCount: newCount,
+                isRead: self.readThreadIds.contains(favorite.threadId)
+            )
         }
         dataSource = UICollectionViewDiffableDataSource<Int, Favourite>(collectionView: collectionView) { collectionView, indexPath, favorite in
             collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: favorite)

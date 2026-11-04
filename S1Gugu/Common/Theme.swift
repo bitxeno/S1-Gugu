@@ -225,6 +225,14 @@ enum Theme {
     /// 帖子详情楼层之间的空白高度:让相邻回复有清晰界限
     static let floorSpacing: CGFloat = 20
 
+    /// 主题列表 / 收藏 / 历史的回复数徽标
+    static let replyChipReadBackground = UIColor(hex: 0xADAE6D)
+    static let replyChipReadText = UIColor.white
+    static let replyChipUnreadBackground = UIColor(hex: 0xD8DFC7)
+    static let replyChipUnreadText = UIColor(hex: 0x6F7A3C)
+    /// 「+N」新回复数:与未读徽标文字同色
+    static let replyChipNewReply = UIColor(hex: 0x6F7A3C)
+
     /// 全 App 间距刻度:4pt 基准,新代码只从这里取值,避免散落的 magic number。
     /// xxs 用于极小的图文内联;xs 用于图标与文字;s 用于标题与备注、同组控件;
     /// m 用于相关分组;l 用于页面左右边距与组间距;xl/xxl 用于楼层、区块留白。

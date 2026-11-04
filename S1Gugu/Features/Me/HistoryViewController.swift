@@ -48,7 +48,12 @@ final class HistoryViewController: UIViewController {
         listConfig.showsSeparators = true
         listConfig.backgroundColor = Theme.background
         let layout = UICollectionViewCompositionalLayout { _, environment in
-            NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
+            let section = NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
+            // insetGrouped 的 section 横向 inset 会与 cell 的 16pt 内容边距叠加,
+            // 归零后左右回到系统标准的 16pt 内容边距。
+            section.contentInsets.leading = 0
+            section.contentInsets.trailing = 0
+            return section
         }
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
         collectionView.backgroundColor = Theme.background
@@ -63,7 +68,8 @@ final class HistoryViewController: UIViewController {
             cell.configure(
                 title: entry.title,
                 meta: timeText,
-                replyCount: self.replyCounts[entry.threadId] ?? 0
+                replyCount: self.replyCounts[entry.threadId] ?? 0,
+                isRead: true
             )
         }
         dataSource = UICollectionViewDiffableDataSource<Int, HistoryEntry>(collectionView: collectionView) { collectionView, indexPath, entry in

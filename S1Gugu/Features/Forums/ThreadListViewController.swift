@@ -17,15 +17,15 @@ final class ThreadCell: UICollectionViewListCell {
 
         // 回复数徽标(参考 S1 移动版列表:前置定宽灰底数字,≥1 万缩写为 K)
         replyCountLabel.font = .preferredFont(forTextStyle: .footnote)
-        replyCountLabel.textColor = Theme.secondaryLabel
+        replyCountLabel.textColor = Theme.replyChipUnreadText
         replyCountLabel.adjustsFontForContentSizeCategory = true
         // 定宽徽标:极端大字体下缩字兜底
         replyCountLabel.adjustsFontSizeToFitWidth = true
         replyCountLabel.minimumScaleFactor = 0.75
         replyCountLabel.textAlignment = .center
         replyCountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        replyCountChip.backgroundColor = .secondarySystemFill
-        replyCountChip.layer.cornerRadius = 4
+        replyCountChip.backgroundColor = Theme.replyChipUnreadBackground
+        replyCountChip.layer.cornerRadius = 6
         replyCountChip.clipsToBounds = true
         replyCountChip.addSubview(replyCountLabel)
         replyCountLabel.snp.makeConstraints { make in
@@ -37,7 +37,7 @@ final class ThreadCell: UICollectionViewListCell {
 
         // 徽标下方的「+N」新回复数(accent 色小字,无新回复时隐藏)
         newReplyLabel.font = .preferredFont(forTextStyle: .caption2)
-        newReplyLabel.textColor = Theme.accent
+        newReplyLabel.textColor = Theme.replyChipNewReply
         newReplyLabel.adjustsFontForContentSizeCategory = true
         newReplyLabel.textAlignment = .center
         newReplyLabel.isHidden = true
@@ -87,11 +87,17 @@ final class ThreadCell: UICollectionViewListCell {
     }
 
     /// 收藏 / 浏览历史等「标题 + 备注 + 回复数」列表复用主题列表的行布局。
-    /// 不展示置顶/投票徽标与「+N」新回复标记,其余与 `configure(_:isRead:)` 一致。
-    func configure(title: String, meta: String, replyCount: Int) {
+    /// 不展示置顶/投票徽标,其余与 `configure(_:isRead:)` 一致。
+    func configure(title: String, meta: String, replyCount: Int, newReplyCount: Int = 0, isRead: Bool) {
+        applyReplyChipStyle(isRead: isRead)
         replyCountLabel.text = Self.replyCountText(replyCount)
-        newReplyLabel.text = nil
-        newReplyLabel.isHidden = true
+        if newReplyCount > 0 {
+            newReplyLabel.text = "+\(newReplyCount)"
+            newReplyLabel.isHidden = false
+        } else {
+            newReplyLabel.text = nil
+            newReplyLabel.isHidden = true
+        }
 
         titleLabel.attributedText = nil
         titleLabel.text = title
@@ -101,6 +107,7 @@ final class ThreadCell: UICollectionViewListCell {
     }
 
     func configure(_ thread: Thread, isRead: Bool) {
+        applyReplyChipStyle(isRead: isRead)
         replyCountLabel.text = Self.replyCountText(thread.replyCount)
         if let newCount = thread.newReplyCount {
             newReplyLabel.text = "+\(newCount)"
@@ -146,6 +153,13 @@ final class ThreadCell: UICollectionViewListCell {
         if !published.isEmpty { meta.append(published) }
         metaLabel.text = meta.joined(separator: " · ")
         metaLabel.textColor = Theme.secondaryLabel
+    }
+
+    /// 已读:深橄榄底白字;未读:浅橄榄底绿字;「+N」统一用未读绿
+    private func applyReplyChipStyle(isRead: Bool) {
+        replyCountChip.backgroundColor = isRead ? Theme.replyChipReadBackground : Theme.replyChipUnreadBackground
+        replyCountLabel.textColor = isRead ? Theme.replyChipReadText : Theme.replyChipUnreadText
+        newReplyLabel.textColor = Theme.replyChipNewReply
     }
 
     // MARK: 内联方框徽标
@@ -361,7 +375,12 @@ final class ThreadListViewController: UIViewController {
         // list section 默认自绘系统背景,必须显式指定,否则盖住页面米白
         listConfig.backgroundColor = Theme.background
         let layout = UICollectionViewCompositionalLayout { sectionIndex, environment in
-            NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
+            let section = NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
+            // insetGrouped 的 section 横向 inset 会与 cell 的 16pt 内容边距叠加,
+            // 归零后左右回到系统标准的 16pt 内容边距。
+            section.contentInsets.leading = 0
+            section.contentInsets.trailing = 0
+            return section
         }
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
         collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
