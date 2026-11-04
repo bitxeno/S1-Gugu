@@ -125,7 +125,7 @@ extension UserThreadsViewController: UITableViewDataSource, UITableViewDelegate 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "homeitem", for: indexPath)
         cell.applyFlatListBackground()
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.textProperties.numberOfLines = 2
         config.secondaryTextProperties.color = Theme.secondaryLabel
         config.secondaryTextProperties.font = .preferredFont(forTextStyle: .caption1)

@@ -79,7 +79,7 @@ extension DarkRoomViewController: UITableViewDataSource, UITableViewDelegate {
         let cell = tableView.dequeueReusableCell(withIdentifier: "darkroom", for: indexPath)
         cell.applyFlatListBackground()
         let item = items[indexPath.row]
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.text = "\(item.username ?? "UID \(item.uid)") · \(item.action ?? "处罚")"
         var detail: [String] = []
         if let reason = item.reason, !reason.isEmpty { detail.append("理由:\(reason)") }
@@ -167,7 +167,7 @@ extension PostBackupsViewController: UITableViewDataSource, UITableViewDelegate 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "backup", for: indexPath)
         let entry = entries[indexPath.row]
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.text = entry.title.isEmpty ? "主题 #\(entry.threadId)" : entry.title
         config.secondaryText = "\(entry.pageCount) 页 · 备份于 \(Thread.formatDate(String(entry.timestamp)))"
         config.textProperties.numberOfLines = 2

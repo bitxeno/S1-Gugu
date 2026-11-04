@@ -224,6 +224,23 @@ enum Theme {
     static let contentInset: CGFloat = 16
     /// 帖子详情楼层之间的空白高度:让相邻回复有清晰界限
     static let floorSpacing: CGFloat = 20
+
+    /// 全 App 间距刻度:4pt 基准,新代码只从这里取值,避免散落的 magic number。
+    /// xxs 用于极小的图文内联;xs 用于图标与文字;s 用于标题与备注、同组控件;
+    /// m 用于相关分组;l 用于页面左右边距与组间距;xl/xxl 用于楼层、区块留白。
+    enum Spacing {
+        static let xxs: CGFloat = 2
+        static let xs: CGFloat = 4
+        static let s: CGFloat = 8
+        static let m: CGFloat = 12
+        static let l: CGFloat = 16
+        static let xl: CGFloat = 20
+        static let xxl: CGFloat = 24
+
+        /// 列表行 / 卡片中「标题 + 备注(次要信息)」的垂直间距,
+        /// 以帖子列表的标题与作者/时间行为基准,其他页面保持一致。
+        static let titleToSecondary: CGFloat = 8
+    }
 }
 
 // MARK: - 扁平列表 cell
@@ -237,6 +254,13 @@ extension UITableViewCell {
         background.backgroundColor = color
         backgroundConfiguration = background
     }
+
+    /// 列表行默认内容配置:标题与备注的间距统一走 Theme.Spacing.titleToSecondary。
+    func appDefaultContentConfiguration() -> UIListContentConfiguration {
+        var config = defaultContentConfiguration()
+        config.textToSecondaryTextVerticalPadding = Theme.Spacing.titleToSecondary
+        return config
+    }
 }
 
 extension UICollectionViewListCell {
@@ -244,5 +268,12 @@ extension UICollectionViewListCell {
         var background = UIBackgroundConfiguration.listGroupedCell()
         background.backgroundColor = color
         backgroundConfiguration = background
+    }
+
+    /// 列表行默认内容配置:标题与备注的间距统一走 Theme.Spacing.titleToSecondary。
+    func appDefaultContentConfiguration() -> UIListContentConfiguration {
+        var config = defaultContentConfiguration()
+        config.textToSecondaryTextVerticalPadding = Theme.Spacing.titleToSecondary
+        return config
     }
 }

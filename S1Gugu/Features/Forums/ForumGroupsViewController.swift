@@ -92,7 +92,7 @@ final class ForumGroupsViewController: UIViewController {
     private func configureCell(_ tableView: UITableView, at indexPath: IndexPath, item: ListItem) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "forum", for: indexPath)
         cell.applyFlatListBackground()
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         switch item {
         case let .favorite(entry):
             config.text = entry.name

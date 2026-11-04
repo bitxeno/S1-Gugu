@@ -148,7 +148,7 @@ extension BlacklistViewController: UITableViewDataSource, UITableViewDelegate {
         let cell = tableView.dequeueReusableCell(withIdentifier: "blacklist", for: indexPath)
         cell.applyFlatListBackground()
         let entry = entries[indexPath.row]
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.text = displayName(entry)
         config.secondaryText = detailText(entry)
         config.textProperties.font = .preferredFont(forTextStyle: .body)
@@ -275,7 +275,7 @@ extension BlackWordViewController: UITableViewDataSource, UITableViewDelegate {
         let cell = tableView.dequeueReusableCell(withIdentifier: "blackword", for: indexPath)
         cell.applyFlatListBackground()
         let entry = entries[indexPath.row]
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.text = entry.word
         config.secondaryText = entry.level == 2 ? "命中时删除" : "命中时隐藏(占位)"
         config.textProperties.font = .preferredFont(forTextStyle: .body)

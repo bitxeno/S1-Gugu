@@ -3,7 +3,7 @@ import SnapKit
 
 // MARK: - Cell
 
-final class ThreadCell: UICollectionViewCell {
+final class ThreadCell: UICollectionViewListCell {
 
     private let replyCountChip = UIView()
     private let replyCountLabel = UILabel()
@@ -13,6 +13,7 @@ final class ThreadCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        applyFlatListBackground()
 
         // 回复数徽标(参考 S1 移动版列表:前置定宽灰底数字,≥1 万缩写为 K)
         replyCountLabel.font = .preferredFont(forTextStyle: .footnote)
@@ -71,14 +72,32 @@ final class ThreadCell: UICollectionViewCell {
         }
         metaLabel.snp.makeConstraints { make in
             make.leading.equalTo(replyCountChip.snp.trailing).offset(10)
-            make.top.equalTo(titleLabel.snp.bottom).offset(8)
+            make.top.equalTo(titleLabel.snp.bottom).offset(Theme.Spacing.titleToSecondary)
             make.trailing.equalTo(contentView.layoutMarginsGuide.snp.trailing)
             make.bottom.lessThanOrEqualToSuperview().inset(10)
         }
+        // 分隔线从标题 leading 开始,不伸进左侧回复数徽标区域
+        separatorLayoutGuide.leadingAnchor
+            .constraint(equalTo: titleLabel.leadingAnchor)
+            .isActive = true
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    /// 收藏 / 浏览历史等「标题 + 备注 + 回复数」列表复用主题列表的行布局。
+    /// 不展示置顶/投票徽标与「+N」新回复标记,其余与 `configure(_:isRead:)` 一致。
+    func configure(title: String, meta: String, replyCount: Int) {
+        replyCountLabel.text = Self.replyCountText(replyCount)
+        newReplyLabel.text = nil
+        newReplyLabel.isHidden = true
+
+        titleLabel.attributedText = nil
+        titleLabel.text = title
+        titleLabel.textColor = Theme.label
+        metaLabel.text = meta
+        metaLabel.textColor = Theme.secondaryLabel
     }
 
     func configure(_ thread: Thread, isRead: Bool) {
@@ -123,12 +142,8 @@ final class ThreadCell: UICollectionViewCell {
 
         var meta: [String] = []
         if !thread.author.isEmpty { meta.append(thread.author) }
-        let published = thread.publishedText
+        let published = thread.relativePublishedText
         if !published.isEmpty { meta.append(published) }
-        // 0 回复时服务端把 lastposter 填成楼主,与首个 meta 重复,仅在确有回复时展示
-        if thread.replyCount > 0, let lastPoster = thread.lastPoster, !lastPoster.isEmpty {
-            meta.append("最后回复 \(lastPoster)")
-        }
         metaLabel.text = meta.joined(separator: " · ")
         metaLabel.textColor = Theme.secondaryLabel
     }
@@ -299,15 +314,15 @@ final class ThreadListViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // 从帖子返回时刷新已读状态、上次浏览回复数与版块收藏状态
+        // 从帖子返回时刷新已读状态、上次浏览回复数、版块收藏状态与相对时间文案
         Task { [weak self] in
             guard let self else { return }
             self.isForumFavorite = await ForumFavoriteService.isFavorite(forumId: self.forum.id)
-            await self.reloadReadState()
+            await self.reloadReadState(refreshTimes: true)
         }
     }
 
-    private func reloadReadState() async {
+    private func reloadReadState(refreshTimes: Bool = false) async {
         let history = await HistoryService.entries()
         let ids = Set(history.map(\.threadId))
         let counts = await DbThreadService.entries(threadIds: ids.sorted())
@@ -321,14 +336,15 @@ final class ThreadListViewController: UIViewController {
             lastReplyCounts = newCounts
             changed = true
         }
-        if changed {
-            reconfigureReadState()
+        // 相对时间会随停留时间变旧,回到列表时即使已读状态没变也重跑一次配置
+        if changed || refreshTimes {
+            reconfigureThreadCells()
         }
     }
 
-    /// 已读状态烘在 cell 配置里:对现有 item 走 reconfigure 重跑 cell provider,
+    /// 已读状态与相对时间烘在 cell 配置里:对现有 item 走 reconfigure 重跑 cell provider,
     /// 不能用 reloadData(与 diffable data source 混用会破坏其内部快照状态)
-    private func reconfigureReadState() {
+    private func reconfigureThreadCells() {
         guard let dataSource else { return }
         var snapshot = dataSource.snapshot()
         let threadItems = snapshot.itemIdentifiers.filter {

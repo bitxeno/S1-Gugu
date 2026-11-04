@@ -174,7 +174,7 @@ extension PMListViewController: UITableViewDataSource, UITableViewDelegate {
         let cell = tableView.dequeueReusableCell(withIdentifier: "pmgroup", for: indexPath)
         cell.applyFlatListBackground()
         let group = groups[indexPath.row]
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.text = group.displayName
         config.secondaryText = group.lastSummary ?? ""
         config.textProperties.font = .preferredFont(forTextStyle: .body)
@@ -557,7 +557,7 @@ extension NoticeViewController: UITableViewDataSource, UITableViewDelegate {
         let cell = tableView.dequeueReusableCell(withIdentifier: "note", for: indexPath)
         cell.applyFlatListBackground()
         let note = notes[indexPath.row]
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.text = HTMLTextCleaner.plain(note.note)
         config.secondaryText = note.timeText
         config.textProperties.font = .preferredFont(forTextStyle: .subheadline)

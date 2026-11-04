@@ -112,7 +112,7 @@ final class SettingsViewController: UIViewController {
     }
 
     private func toggleCell(_ cell: UITableViewCell, title: String, subtitle: String?, isOn: Bool, action: @escaping (Bool) -> Void) -> UITableViewCell {
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.text = title
         config.textProperties.font = .preferredFont(forTextStyle: .body)
         if let subtitle {
@@ -171,7 +171,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                     isOn: AppSettings.wifiOnlyImages
                 ) { AppSettings.wifiOnlyImages = $0 }
             }
-            var config = cell.defaultContentConfiguration()
+            var config = cell.appDefaultContentConfiguration()
             config.text = "清除图片缓存"
             config.textProperties.font = .preferredFont(forTextStyle: .body)
             config.secondaryText = cachedImageSizeText
@@ -205,7 +205,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
         case .display:
             switch indexPath.row {
             case 0:
-                var config = cell.defaultContentConfiguration()
+                var config = cell.appDefaultContentConfiguration()
                 config.text = "外观"
                 config.secondaryText = AppSettings.appearanceMode.displayName
                 config.textProperties.font = .preferredFont(forTextStyle: .body)
@@ -230,7 +230,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 let isLight = indexPath.row == 1
                 let variants: [ThemeVariant] = isLight ? [.default, .custard] : [.default]
                 let current = isLight ? AppSettings.lightTheme : AppSettings.darkTheme
-                var config = cell.defaultContentConfiguration()
+                var config = cell.appDefaultContentConfiguration()
                 config.text = isLight ? "浅色主题" : "深色主题"
                 config.secondaryText = current.displayName
                 config.textProperties.font = .preferredFont(forTextStyle: .body)
@@ -254,7 +254,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 cell.accessoryType = .none
                 return cell
             default:
-                var config = cell.defaultContentConfiguration()
+                var config = cell.appDefaultContentConfiguration()
                 config.text = "帖子字号"
                 config.textProperties.font = .preferredFont(forTextStyle: .body)
                 let scale = AppSettings.fontScale
@@ -290,7 +290,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 }
             }
             if indexPath.row == 1 {
-                var config = cell.defaultContentConfiguration()
+                var config = cell.appDefaultContentConfiguration()
                 config.text = "备用域名"
                 let host = AppSettings.customHost
                 config.secondaryText = host.isEmpty ? "未设置(默认 stage1st.com)" : host
@@ -301,7 +301,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 cell.accessoryType = .disclosureIndicator
                 return cell
             }
-            var config = cell.defaultContentConfiguration()
+            var config = cell.appDefaultContentConfiguration()
             config.text = "清空列表缓存"
             config.secondaryText = "版块/主题/帖子的秒开缓存"
             config.textProperties.font = .preferredFont(forTextStyle: .body)
@@ -312,7 +312,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
             return cell
         default:
             if indexPath.row == 0 {
-                var config = cell.defaultContentConfiguration()
+                var config = cell.appDefaultContentConfiguration()
                 let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
                 config.text = "版本"
                 config.secondaryText = "\(version)(M3)"
@@ -322,7 +322,7 @@ extension SettingsViewController: UITableViewDataSource, UITableViewDelegate {
                 cell.accessoryType = .none
                 return cell
             }
-            var config = cell.defaultContentConfiguration()
+            var config = cell.appDefaultContentConfiguration()
             config.text = "开源许可"
             config.textProperties.font = .preferredFont(forTextStyle: .body)
             cell.contentConfiguration = config

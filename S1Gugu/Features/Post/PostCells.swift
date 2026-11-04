@@ -85,7 +85,7 @@ final class PostHeaderCell: UICollectionViewCell {
 
         let textStack = UIStackView(arrangedSubviews: [nameRow, metaLabel])
         textStack.axis = .vertical
-        textStack.spacing = 3
+        textStack.spacing = Theme.Spacing.titleToSecondary
         // .fill 会把名字行拉宽到日期行宽度,徽标随之被拉伸成大方框
         textStack.alignment = .leading
 

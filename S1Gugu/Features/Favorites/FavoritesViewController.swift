@@ -73,7 +73,17 @@ final class FavoritesListViewController: UIViewController {
             reloadFirstPage()
         } else {
             renderLoginState()
+            reconfigureFavoriteCells()
         }
+    }
+
+    /// 相对时间会随停留时间变旧,回到列表时重跑一次 cell 配置
+    private func reconfigureFavoriteCells() {
+        guard let dataSource else { return }
+        var snapshot = dataSource.snapshot()
+        guard !snapshot.itemIdentifiers.isEmpty else { return }
+        snapshot.reconfigureItems(snapshot.itemIdentifiers)
+        dataSource.apply(snapshot, animatingDifferences: false)
     }
 
     @objc private func sessionChanged() {
@@ -103,17 +113,15 @@ final class FavoritesListViewController: UIViewController {
         refresh.addAction(UIAction { [weak self] _ in self?.reloadFirstPage() }, for: .valueChanged)
         collectionView.refreshControl = refresh
 
-        let registration = UICollectionView.CellRegistration<UICollectionViewListCell, Favourite> { cell, _, favorite in
-            cell.applyFlatListBackground()
-            var config = cell.defaultContentConfiguration()
-            config.text = favorite.displayName
-            config.secondaryText = favorite.description ?? Thread.formatDate(favorite.dateline)
-            config.textProperties.font = .preferredFont(forTextStyle: .subheadline)
-            config.textProperties.numberOfLines = 2
-            config.secondaryTextProperties.font = .preferredFont(forTextStyle: .caption1)
-            config.secondaryTextProperties.color = Theme.tertiaryLabel
-            config.text = favorite.displayName
-            cell.contentConfiguration = config
+        let registration = UICollectionView.CellRegistration<ThreadCell, Favourite> { cell, _, favorite in
+            let timeText = RelativeTimeFormatter.friendlyText(from: favorite.dateline)
+                ?? Thread.formatDate(favorite.dateline)
+            let timeMeta = timeText.isEmpty ? "" : "收藏于 \(timeText)"
+            let meta = [timeMeta, favorite.description ?? ""]
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " · ")
+            cell.configure(title: favorite.displayName, meta: meta, replyCount: favorite.replyCount)
         }
         dataSource = UICollectionViewDiffableDataSource<Int, Favourite>(collectionView: collectionView) { collectionView, indexPath, favorite in
             collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: favorite)

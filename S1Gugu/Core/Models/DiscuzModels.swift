@@ -112,6 +112,10 @@ struct Thread: Sendable, Identifiable, Hashable {
 
     /// dbdateline 可能是 Unix 时间戳串,也可能是服务端格式化串
     var publishedText: String { Self.formatDate(dbdateline) }
+    /// 主题列表用的友好时间:几秒/分钟/小时/天前,超过 7 天回退绝对时间
+    var relativePublishedText: String {
+        RelativeTimeFormatter.friendlyText(from: dbdateline) ?? publishedText
+    }
     var lastPostText: String { Self.formatDate(dblastpost) }
 
     static func formatDate(_ value: String?) -> String {
@@ -257,9 +261,11 @@ struct Favourite: Sendable, Identifiable, Hashable {
     let title: String?
     let description: String?
     let dateline: String?
+    let replies: String
 
     var threadId: Int { Int(id) ?? 0 }
     var displayName: String { title ?? "(无标题)" }
+    var replyCount: Int { Int(replies) ?? 0 }
 
     init(json: JSON) {
         id = json["id"].flexibleString
@@ -267,6 +273,7 @@ struct Favourite: Sendable, Identifiable, Hashable {
         title = json["title"].flexibleStringOrNil
         description = json["description"].flexibleStringOrNil
         dateline = json["dateline"].flexibleStringOrNil
+        replies = json["replies"].flexibleString
     }
 }
 

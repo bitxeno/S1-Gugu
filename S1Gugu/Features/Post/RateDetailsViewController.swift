@@ -91,7 +91,7 @@ extension RateDetailsViewController: UITableViewDataSource {
         let cell = tableView.dequeueReusableCell(withIdentifier: "rate", for: indexPath)
         cell.applyFlatListBackground()
         let rate = rates[indexPath.row]
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.text = "\(rate.uname ?? "UID \(rate.uid ?? "-")")  \(rate.symbolScore)"
         config.textProperties.font = .preferredFont(forTextStyle: .subheadline)
         config.secondaryText = [rate.content, rate.time].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")

@@ -164,7 +164,7 @@ final class UserHomeViewController: UIViewController {
 
         let nameStack = UIStackView(arrangedSubviews: [nameLabel, groupLabel])
         nameStack.axis = .vertical
-        nameStack.spacing = 4
+        nameStack.spacing = Theme.Spacing.titleToSecondary
 
         let header = UIStackView(arrangedSubviews: [avatar, nameStack])
         header.axis = .horizontal

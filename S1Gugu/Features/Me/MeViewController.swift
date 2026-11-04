@@ -98,7 +98,7 @@ final class MeViewController: UIViewController {
     }
 
     private func configure(cell: UITableViewCell, row: Row) {
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         cell.accessoryType = .disclosureIndicator
 
         switch row {
@@ -182,7 +182,7 @@ final class MeViewController: UIViewController {
     private func configureAccountCell(_ cell: UITableViewCell) {
         cell.applyFlatListBackground()
 
-        var config = cell.defaultContentConfiguration()
+        var config = cell.appDefaultContentConfiguration()
         config.imageProperties.cornerRadius = 22
         config.imageProperties.maximumSize = CGSize(width: 44, height: 44)
         config.imageProperties.reservedLayoutSize = CGSize(width: 44, height: 44)

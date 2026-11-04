@@ -233,7 +233,7 @@ extension SearchViewController: UITableViewDataSource, UITableViewDelegate {
             cell.selectionStyle = .default
         } else {
             let result = userResults[indexPath.row]
-            var config = cell.defaultContentConfiguration()
+            var config = cell.appDefaultContentConfiguration()
             config.text = result.name ?? "UID \(result.uid)"
             config.secondaryText = "UID \(result.uid)"
             config.secondaryTextProperties.color = Theme.secondaryLabel
