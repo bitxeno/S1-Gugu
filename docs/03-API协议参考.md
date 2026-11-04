@@ -59,6 +59,7 @@
 - 列表:`GET module=myfavthread&page={page}` → `Variables.list[]`(`idfield=tid, title, description, dateline` 等)
 - 添加:`POST module=favthread&favoritesubmit=yes`,form:`formhash, id(tid), description(备注)`
 - 移除:`POST module=favthread&deletesubmit=true&op=delete`,form:`formhash, favid`
+- 网页黑名单(导入):`GET home.php?mod=space&do=friend&view=blacklist&uid={uid}&page={page}` → HTML `#friend_ul li`(`h4 > a` 为用户链接),`.pg` 为分页
 
 ### 2.6 formhash 刷新
 `GET api/mobile/index.php?module=toplist` → 取 `Variables.formhash`

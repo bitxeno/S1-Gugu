@@ -118,4 +118,45 @@ final class HTMLParsersTests: XCTestCase {
         """
         XCTAssertEqual(HTMLParsers.rates(html).count, 0)
     }
+
+    func testWebBlacklistParsing() {
+        let html = """
+        <html><body>
+        <div id="friend_ul"><ul class="buddy cl">
+          <li id="friend_539063_li">
+            <div class="avt"><a href="space-uid-539063.html"><img src="a.jpg"></a></div>
+            <h4>
+              <span class="xg1 xw0 y"><a href="home.php?mod=spacecp&ac=friend&op=blacklist&subop=delete&uid=539063">黑名单除名</a></span>
+              <a href="space-uid-539063.html">咖啡渣</a>
+            </h4>
+          </li>
+          <li id="friend_42_li">
+            <div class="avt"><a href="space-uid-42.html"><img src="b.jpg"></a></div>
+            <h4><a href="space-uid-42.html">某人</a></h4>
+          </li>
+        </ul></div>
+        <div class="pg"><label><span>1 / 3</span><input type="text" name="custompage" value="1"></label>
+          <a href="home.php?mod=space&do=friend&view=blacklist&uid=561399&page=2">下一页</a>
+        </div>
+        </body></html>
+        """
+        let page = HTMLParsers.webBlacklist(html)
+        XCTAssertEqual(page.users.count, 2)
+        XCTAssertEqual(page.users[0].uid, 539063)
+        XCTAssertEqual(page.users[0].name, "咖啡渣")
+        XCTAssertEqual(page.users[1].uid, 42)
+        XCTAssertEqual(page.users[1].name, "某人")
+        XCTAssertEqual(page.page, 1)
+        XCTAssertEqual(page.maxPage, 3)
+    }
+
+    func testWebBlacklistWithoutPagination() {
+        let html = """
+        <div id="friend_ul"><ul><li><h4><a href="space-uid-7.html">甲</a></h4></li></ul></div>
+        """
+        let page = HTMLParsers.webBlacklist(html)
+        XCTAssertEqual(page.users.map(\.uid), [7])
+        XCTAssertEqual(page.page, 1)
+        XCTAssertEqual(page.maxPage, 1)
+    }
 }

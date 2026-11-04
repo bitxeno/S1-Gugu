@@ -354,6 +354,18 @@ struct DiscuzAPI: Sendable {
         return json["Variables"]["list"].arrayValue.map { Friend(json: $0) }
     }
 
+    /// 论坛网页版黑名单(HTML 分页),用于从网页导入
+    func webBlacklist(uid: String, page: Int) async throws -> WebBlacklistPage {
+        let raw = try await client.get(
+            path: "home.php",
+            query: [
+                "mod": "space", "do": "friend", "view": "blacklist",
+                "uid": uid, "page": String(page),
+            ]
+        )
+        return HTMLParsers.webBlacklist(try await htmlString(from: raw))
+    }
+
 
     // MARK: 搜索(HTML 结果页,需登录态)
 

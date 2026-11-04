@@ -38,6 +38,7 @@ final class PostListViewController: UIViewController {
     private var footerError: String?
     private var loadTask: Task<Void, Never>?
     private var didRecordHistory = false
+    private var needsBlacklistReload = false
     private let quickSideBar = QuickSideBarView(frame: .zero)
     private let sideBarBubble = UILabel()
     private let pagerBar = PostPagerBar()
@@ -71,6 +72,10 @@ final class PostListViewController: UIViewController {
             self, selector: #selector(postDidChange),
             name: .postDidChange, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(blacklistDidChange),
+            name: BlacklistService.didChangeNotification, object: nil
+        )
         setupQuickSideBar()
 
         Task { [weak self] in
@@ -82,6 +87,16 @@ final class PostListViewController: UIViewController {
                 self.initialAnchorPid = progress.anchorPid
             }
             self.loadPage(PostPagerState.normalizedPage(self.initialPage ?? 1), anchorPid: self.initialAnchorPid, replace: true)
+        }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if needsBlacklistReload, !isLoading {
+            needsBlacklistReload = false
+            if currentPage > 0 {
+                loadPage(currentPage, replace: true)
+            }
         }
     }
 
@@ -144,6 +159,20 @@ final class PostListViewController: UIViewController {
     @objc private func postDidChange() {
         guard currentPage > 0 else { return }
         loadPage(currentPage, replace: true)
+    }
+
+    /// 黑名单或屏蔽词变更:当前可见就重载本页,否则等下次进入帖子时刷新
+    @objc private func blacklistDidChange() {
+        guard viewIfLoaded?.window != nil, navigationController?.topViewController === self else {
+            needsBlacklistReload = true
+            return
+        }
+        guard currentPage > 0 else { return }
+        if isLoading {
+            needsBlacklistReload = true
+        } else {
+            loadPage(currentPage, replace: true)
+        }
     }
 
     private func openReply(quotePost: Post?) {

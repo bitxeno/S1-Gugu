@@ -27,6 +27,17 @@ struct UserSearchResult: Sendable, Identifiable, Hashable {
     var id: String { uid }
 }
 
+struct WebBlacklistUser: Sendable, Hashable {
+    let uid: Int
+    let name: String?
+}
+
+struct WebBlacklistPage: Sendable {
+    let users: [WebBlacklistUser]
+    let page: Int
+    let maxPage: Int
+}
+
 struct HomeThreadItem: Sendable, Identifiable, Hashable {
     let title: String
     /// thread-xxx-page-x.html 相对链接
@@ -221,6 +232,59 @@ enum HTMLParsers {
             result.append(RateInfo(uid: uid, uname: uname, score: score, time: time, content: content))
         }
         return result
+    }
+
+    // MARK: 网页黑名单(home.php mod=space&do=friend&view=blacklist)
+
+    static func webBlacklist(_ html: String) -> WebBlacklistPage {
+        guard let document = try? SwiftSoup.parse(html) else {
+            return WebBlacklistPage(users: [], page: 1, maxPage: 1)
+        }
+        var seen = Set<Int>()
+        var users: [WebBlacklistUser] = []
+        let items = (try? document.select("#friend_ul li").array()) ?? []
+        for item in items {
+            guard let link = try? item.select("h4 > a").first() else { continue }
+            let href = (try? link.attr("href")) ?? ""
+            guard let match = href.firstMatch(of: /(?:space-uid-|uid=)(\d+)/),
+                  let uid = Int(match.1),
+                  uid > 0,
+                  seen.insert(uid).inserted
+            else { continue }
+            let name = ((try? link.text()) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            users.append(WebBlacklistUser(uid: uid, name: name.isEmpty ? nil : name))
+        }
+        let info = webBlacklistPageInfo(document)
+        return WebBlacklistPage(users: users, page: info.page, maxPage: info.maxPage)
+    }
+
+    private static func webBlacklistPageInfo(_ document: Document) -> (page: Int, maxPage: Int) {
+        var page = 1
+        var maxPage = 1
+        if let label = try? document.select(".pg label").first() {
+            if let input = try? label.select("input").first(),
+               let value = Int((try? input.attr("value")) ?? "") {
+                page = max(value, 1)
+            }
+            if let span = try? label.select("span").first(),
+               let text = try? span.text() {
+                // Discuz 的页码文本形如 "1 / 3"
+                let numbers = text.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
+                if let last = numbers.last { maxPage = max(last, page) }
+            }
+        }
+        if maxPage <= 1 {
+            // 部分主题页只有「下一页」链接,没有页码 label
+            let links = (try? document.select(".pg a[href]").array()) ?? []
+            for link in links {
+                let href = (try? link.attr("href")) ?? ""
+                if let match = href.firstMatch(of: /page=(\d+)/),
+                   let value = Int(match.1) {
+                    maxPage = max(maxPage, value)
+                }
+            }
+        }
+        return (page, maxPage)
     }
 
     // MARK: Helpers

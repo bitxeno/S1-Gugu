@@ -25,12 +25,25 @@ final class BlacklistViewController: UIViewController {
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "blacklist")
         view.addSubview(tableView)
 
-        navigationItem.rightBarButtonItem = UIBarButtonItem(primaryAction: UIAction(
-            title: "添加黑名单",
-            image: UIImage(systemName: "plus")
-        ) { [weak self] _ in
-            self?.showAddAlert()
-        })
+        navigationItem.rightBarButtonItems = [
+            UIBarButtonItem(
+                image: UIImage(systemName: "ellipsis.circle"),
+                menu: UIMenu(children: [
+                    UIAction(
+                        title: "从网页导入黑名单",
+                        image: UIImage(systemName: "square.and.arrow.down")
+                    ) { [weak self] _ in
+                        self?.importFromWeb()
+                    },
+                ])
+            ),
+            UIBarButtonItem(primaryAction: UIAction(
+                title: "添加黑名单",
+                image: UIImage(systemName: "plus")
+            ) { [weak self] _ in
+                self?.showAddAlert()
+            }),
+        ]
 
         placeholder.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(placeholder)
@@ -70,6 +83,46 @@ final class BlacklistViewController: UIViewController {
         parts.append("主题:\(Self.forumLevelNames[entry.forumLevel] ?? "正常")")
         if let remark = entry.remark, !remark.isEmpty { parts.append("备注:\(remark)") }
         return parts.joined(separator: " · ")
+    }
+
+    private func importFromWeb() {
+        guard let uid = SessionStore.shared.state.uid, uid != 0 else {
+            present(LoginViewController(), animated: true)
+            return
+        }
+        let progress = UIAlertController(
+            title: "从网页导入黑名单",
+            message: "正在读取第 1 页…",
+            preferredStyle: .alert
+        )
+        present(progress, animated: true)
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                var page = 1
+                var maxPage = 1
+                var users: [WebBlacklistUser] = []
+                repeat {
+                    let result = try await DiscuzAPI.shared.webBlacklist(uid: String(uid), page: page)
+                    users.append(contentsOf: result.users)
+                    maxPage = min(max(result.maxPage, 1), 100)
+                    progress.message = "正在读取第 \(page)/\(maxPage) 页…"
+                    page += 1
+                } while page <= maxPage
+
+                let count = await BlacklistService.shared.importWebBlacklist(users)
+                progress.dismiss(animated: true)
+                await self.reload()
+                if let count {
+                    Toast.show(count > 0 ? "已导入 \(count) 位用户" : "网页黑名单为空", in: self.view)
+                } else {
+                    Toast.show("导入失败,请稍后重试", in: self.view)
+                }
+            } catch {
+                progress.dismiss(animated: true)
+                Toast.show((error as? LocalizedError)?.errorDescription ?? "导入失败", in: self.view)
+            }
+        }
     }
 
     private func showAddAlert() {

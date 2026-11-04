@@ -300,6 +300,7 @@ final class ThreadListViewController: UIViewController {
     private var subForums: [Forum] = []
     private var selectedTypeId: String?
     private var isForumFavorite = false
+    private var needsBlacklistReload = false
 
     init(forum: Forum) {
         self.forum = forum
@@ -317,6 +318,10 @@ final class ThreadListViewController: UIViewController {
         setupCollectionView()
         navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "ellipsis.circle"), menu: makeMenu())
         setupPlaceholder()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(blacklistDidChange),
+            name: BlacklistService.didChangeNotification, object: nil
+        )
         Task { [weak self] in
             await BlacklistService.shared.reloadIfNeeded()
             guard let self else { return }
@@ -328,11 +333,28 @@ final class ThreadListViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        if needsBlacklistReload, !isLoading {
+            needsBlacklistReload = false
+            reloadFirstPage()
+        }
         // 从帖子返回时刷新已读状态、上次浏览回复数、版块收藏状态与相对时间文案
         Task { [weak self] in
             guard let self else { return }
             self.isForumFavorite = await ForumFavoriteService.isFavorite(forumId: self.forum.id)
             await self.reloadReadState(refreshTimes: true)
+        }
+    }
+
+    /// 黑名单或屏蔽词变更:当前可见就重新拉取第一页,否则等下次进入列表时刷新
+    @objc private func blacklistDidChange() {
+        guard viewIfLoaded?.window != nil, navigationController?.topViewController === self else {
+            needsBlacklistReload = true
+            return
+        }
+        if isLoading {
+            needsBlacklistReload = true
+        } else {
+            reloadFirstPage()
         }
     }
 
