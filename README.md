@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="S1Gugu/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png" width="120" height="120" alt="S1 Gugu">
+<img src="docs/image/app-icon.png" width="120" height="120" alt="S1 Gugu">
 
 # S1 Gugu
 
