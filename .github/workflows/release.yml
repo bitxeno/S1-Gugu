@@ -81,6 +81,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/altsource
+          ICON_URL="https://raw.githubusercontent.com/${REPO}/main/docs/image/app-icon.png"
 
           # 以专用 AltSource release 上的 source.json 为底稿,缺失时从仓库种子起步
           if gh release view AltSource --repo "$REPO" > /dev/null 2>&1; then
@@ -112,6 +113,11 @@ jobs:
             fi
           fi
 
+          # 图标放在 docs/image/,source.json 引用仓库 raw URL
+          jq --arg icon "$ICON_URL" '.apps[0].iconURL = $icon' \
+            build/altsource/source.json > build/altsource/source.icon.json
+          mv build/altsource/source.icon.json build/altsource/source.json
+
           # 版本条目:下载地址指向同 tag 的 IPA 资产
           IPA_URL="https://github.com/${REPO}/releases/download/${TAG}/S1Gugu.ipa"
           IPA_SIZE=$(stat -f%z build/S1Gugu.ipa)
@@ -136,7 +142,7 @@ jobs:
           if ! gh release view AltSource --repo "$REPO" > /dev/null 2>&1; then
             gh release create AltSource --repo "$REPO" \
               --title "AltStore Source" \
-              --notes "Stable URL for AltStore/SideStore source.json. Content is regenerated on every app release; do not edit."
+              --notes "Stable URL for AltStore/SideStore source.json. Icon is hosted at docs/image/app-icon.png; content is regenerated on every app release; do not edit."
           fi
           gh release upload AltSource --repo "$REPO" build/altsource/source.json --clobber
           echo "source.json uploaded to AltSource release for ${TAG}"
