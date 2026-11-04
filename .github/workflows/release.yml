@@ -114,7 +114,7 @@ jobs:
           fi
 
           # 图标放在 docs/image/,source.json 引用仓库 raw URL
-          jq --arg icon "$ICON_URL" '.apps[0].iconURL = $icon' \
+          jq --arg icon "$ICON_URL" '.iconURL = $icon | .apps[0].iconURL = $icon' \
             build/altsource/source.json > build/altsource/source.icon.json
           mv build/altsource/source.icon.json build/altsource/source.json
 
