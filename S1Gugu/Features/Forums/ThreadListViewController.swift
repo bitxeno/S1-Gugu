@@ -305,6 +305,8 @@ final class ThreadListViewController: UIViewController {
     init(forum: Forum) {
         self.forum = forum
         super.init(nibName: nil, bundle: nil)
+        // 帖子列表沉浸浏览:隐藏全局 TabBar,返回论坛首页时自动恢复
+        hidesBottomBarWhenPushed = true
     }
 
     required init?(coder: NSCoder) {
