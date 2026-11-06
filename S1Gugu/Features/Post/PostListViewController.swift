@@ -216,8 +216,8 @@ final class PostListViewController: UIViewController {
                 self?.openGallery(postImage)
             }
         }
-        let quoteRegistration = UICollectionView.CellRegistration<QuoteBlockCell, (String?, AttributedText)> { [weak self] cell, _, payload in
-            cell.configure(author: payload.0, attributed: payload.1.value)
+        let quoteRegistration = UICollectionView.CellRegistration<QuoteBlockCell, (String?, String?, AttributedText)> { [weak self] cell, _, payload in
+            cell.configure(author: payload.0, dateText: payload.1, attributed: payload.2.value)
             cell.onLinkTap = { url in
                 guard let self else { return }
                 LinkRouter.handle(url, from: self)
@@ -253,8 +253,8 @@ final class PostListViewController: UIViewController {
                     return collectionView.dequeueConfiguredReusableCell(using: textRegistration, for: indexPath, item: attributed)
                 case let .image(image):
                     return collectionView.dequeueConfiguredReusableCell(using: imageRegistration, for: indexPath, item: image)
-                case let .quote(author, attributed):
-                    return collectionView.dequeueConfiguredReusableCell(using: quoteRegistration, for: indexPath, item: (author, attributed))
+                case let .quote(author, dateText, attributed):
+                    return collectionView.dequeueConfiguredReusableCell(using: quoteRegistration, for: indexPath, item: (author, dateText, attributed))
                 case let .code(code):
                     return collectionView.dequeueConfiguredReusableCell(using: codeRegistration, for: indexPath, item: code)
                 case let .fileAttachment(file):
@@ -717,7 +717,7 @@ final class PostListViewController: UIViewController {
             let hitAuthor = post.author.localizedCaseInsensitiveContains(keyword)
             let hitBody = blocksByPid[post.pid]?.contains { block in
                 switch block {
-                case let .text(attributed), let .fallback(attributed), let .quote(_, attributed):
+                case let .text(attributed), let .fallback(attributed), let .quote(_, _, attributed):
                     return attributed.value.string.localizedCaseInsensitiveContains(keyword)
                 case let .code(code):
                     return code.localizedCaseInsensitiveContains(keyword)
@@ -811,7 +811,7 @@ extension PostListViewController: UICollectionViewDelegate {
             let blocks = self.blocksByPid[post.pid] ?? []
             let text = blocks.compactMap { block -> String? in
                 switch block {
-                case let .text(attributed), let .fallback(attributed), let .quote(_, attributed):
+                case let .text(attributed), let .fallback(attributed), let .quote(_, _, attributed):
                     return attributed.value.string
                 case let .code(code):
                     return code

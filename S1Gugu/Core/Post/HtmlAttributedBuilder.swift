@@ -87,8 +87,14 @@ enum HtmlAttributedBuilder {
             appendBold(element: element, style: style, into: output, baseURL: baseURL)
         case "i", "em":
             var child = style
+            // 保持斜体:普通 <i>/<em> 与「本帖最后由…编辑」标记都是斜体
             if let italic = descriptor(style.font).withSymbolicTraits(.traitItalic) {
                 child.font = UIFont(descriptor: italic, size: style.font.pointSize)
+            }
+            if ((try? element.className()) ?? "").contains("pstatus") {
+                // 「本帖最后由…编辑」标记:在斜体基础上缩小字号并用次要文字色,弱化存在感
+                child.font = UIFont(descriptor: child.font.fontDescriptor, size: style.font.pointSize * 0.85)
+                child.color = Theme.secondaryLabel
             }
             append(element: element, style: child, into: output, baseURL: baseURL)
         case "s", "strike", "del":

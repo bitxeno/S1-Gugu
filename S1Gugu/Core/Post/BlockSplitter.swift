@@ -197,14 +197,25 @@ enum BlockSplitter {
     ) {
         let innerHTML = (try? element.html()) ?? ""
 
+        // 引用头部形如「作者 发表于 2026-11-5 22:56」,同时取出作者与被引用楼层时间
         var author: String?
-        if let match = innerHTML.firstMatch(of: /<font[^>]*color="#999999"[^>]*>([^<]+?)\s*发表于/) {
-            author = String(match.1).trimmingCharacters(in: .whitespaces)
+        var dateText: String?
+        if let match = innerHTML.firstMatch(of: /<font[^>]*color="#999999"[^>]*>([^<]+?)<\/font>/) {
+            let header = String(match.1).trimmingCharacters(in: .whitespacesAndNewlines)
+            if let separator = header.range(of: "发表于") {
+                author = String(header[..<separator.lowerBound]).trimmingCharacters(in: .whitespaces)
+                let time = String(header[separator.upperBound...]).trimmingCharacters(in: .whitespaces)
+                dateText = time.isEmpty ? nil : time
+            }
         }
 
         // 黑名单用户的引用整体替换
         if let author, let replacement = replacer?(author) {
-            blocks.append(.quote(author: author, attributed: AttributedText(attributedText(replacement))))
+            blocks.append(.quote(
+                author: author,
+                dateText: dateText,
+                attributed: AttributedText(attributedText(replacement))
+            ))
             return
         }
 
@@ -221,11 +232,11 @@ enum BlockSplitter {
                 from: body.getChildNodes(), style: quoteStyle(), baseURL: baseURL
             )
             if attributed.length > 0 {
-                blocks.append(.quote(author: author, attributed: AttributedText(attributed)))
+                blocks.append(.quote(author: author, dateText: dateText, attributed: AttributedText(attributed)))
                 return
             }
         }
-        blocks.append(.quote(author: author, attributed: AttributedText(attributedText("[引用]"))))
+        blocks.append(.quote(author: author, dateText: dateText, attributed: AttributedText(attributedText("[引用]"))))
     }
 
     private static func quoteStyle() -> HtmlAttributedBuilder.Style {

@@ -164,7 +164,7 @@ final class SearchViewController: UIViewController {
                 let blocks = BlockSplitter.split(html: item.html, baseURL: baseURL)
                 let text = blocks.compactMap { block -> NSAttributedString? in
                     switch block {
-                    case let .text(attributed), let .fallback(attributed), let .quote(_, attributed):
+                    case let .text(attributed), let .fallback(attributed), let .quote(_, _, attributed):
                         return attributed.value
                     default: return nil
                     }

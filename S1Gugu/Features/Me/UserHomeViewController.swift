@@ -189,7 +189,7 @@ final class UserHomeViewController: UIViewController {
             let blocks = BlockSplitter.split(html: signatureHTML, baseURL: S1APIClient.shared.baseURL)
             let text = blocks.compactMap { block -> String? in
                 switch block {
-                case let .text(attributed), let .fallback(attributed), let .quote(_, attributed):
+                case let .text(attributed), let .fallback(attributed), let .quote(_, _, attributed):
                     return attributed.value.string
                 default: return nil
                 }

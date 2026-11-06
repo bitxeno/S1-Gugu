@@ -517,9 +517,15 @@ final class QuoteBlockCell: UICollectionViewCell, UITextViewDelegate {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(author: String?, attributed: NSAttributedString) {
-        authorLabel.text = author.map { "\($0) 的引用" }
-        authorLabel.isHidden = (author == nil)
+    func configure(author: String?, dateText: String?, attributed: NSAttributedString) {
+        // 头部展示为「作者 发表于 2026-11-5 22:56」;时间缺失时退化为「作者」
+        if let author, !author.isEmpty {
+            authorLabel.text = dateText.map { "\(author) 发表于 \($0)" } ?? author
+            authorLabel.isHidden = false
+        } else {
+            authorLabel.text = nil
+            authorLabel.isHidden = true
+        }
         textView.attributedText = attributed
     }
 

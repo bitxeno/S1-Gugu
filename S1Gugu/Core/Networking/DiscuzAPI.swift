@@ -671,7 +671,8 @@ enum PostAssembler {
             authorId: raw.authorId,
             isFirst: raw.isFirst,
             floor: raw.number.flatMap { Int($0) },
-            dateTimeText: DiscuzFormatters.timestamp(raw.dbdateline),
+            dateTimeText: RelativeTimeFormatter.friendlyText(from: raw.dbdateline)
+                ?? DiscuzFormatters.timestamp(raw.dbdateline),
             avatarURL: AvatarURL.url(uid: raw.authorId),
             banned: banned,
             isOp: threadAuthor != nil && threadAuthor == raw.author,

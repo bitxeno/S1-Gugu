@@ -74,10 +74,10 @@ enum ShareCardRenderer {
             switch block {
             case let .text(attributed), let .fallback(attributed):
                 stack.addArrangedSubview(makeLabel(attributed.value))
-            case let .quote(author, attributed):
+            case let .quote(author, dateText, attributed):
                 let quoteLabel = makeLabel(attributed.value)
                 quoteLabel.textColor = UIColor(white: 0.35, alpha: 1)
-                let wrapper = makeQuoteWrapper(quoteLabel, author: author)
+                let wrapper = makeQuoteWrapper(quoteLabel, author: author, dateText: dateText)
                 stack.addArrangedSubview(wrapper)
             case let .code(code):
                 let codeLabel = makeLabel(NSAttributedString(string: code))
@@ -133,13 +133,13 @@ enum ShareCardRenderer {
         return label
     }
 
-    private static func makeQuoteWrapper(_ label: UILabel, author: String?) -> UIView {
+    private static func makeQuoteWrapper(_ label: UILabel, author: String?, dateText: String?) -> UIView {
         let wrapper = UIView()
         wrapper.backgroundColor = UIColor(white: 0.96, alpha: 1)
         wrapper.layer.cornerRadius = 8
         if let author, !author.isEmpty {
             let authorLabel = UILabel()
-            authorLabel.text = "\(author) 的引用"
+            authorLabel.text = dateText.map { "\(author) 发表于 \($0)" } ?? author
             authorLabel.font = .systemFont(ofSize: 12)
             authorLabel.textColor = UIColor(white: 0.55, alpha: 1)
             label.text = label.text ?? ""

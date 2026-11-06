@@ -19,8 +19,8 @@ enum PostBlock: Hashable, Sendable {
     case text(AttributedText)
     /// 独立成段的帖子图片
     case image(PostImage)
-    /// 引用块(一层展示,内部归因文本)
-    case quote(author: String?, attributed: AttributedText)
+    /// 引用块(一层展示,内部归因文本)。dateText 为被引用楼层的时间(如「2026-11-5 22:56」),可能缺失
+    case quote(author: String?, dateText: String?, attributed: AttributedText)
     /// 代码块
     case code(String)
     /// 文件附件
