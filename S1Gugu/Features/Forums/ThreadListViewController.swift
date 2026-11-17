@@ -287,6 +287,8 @@ final class ThreadListViewController: UIViewController {
     private var dataSource: UICollectionViewDiffableDataSource<Int, ListItem>!
 
     private let placeholder = StatefulPlaceholderView()
+    /// 导航栏正下方的细条加载指示:仅用于「有缓存时重新进入的后台自动刷新」
+    private let loadingBar = LoadingBar()
 
     private var threads: [Thread] = []
     private var page = 0
@@ -305,6 +307,12 @@ final class ThreadListViewController: UIViewController {
     private var lastDataRefreshAt: Date?
     /// 切回前台时数据超过该时长则重新拉取第一页
     private static let dataStaleInterval: TimeInterval = 3600
+    /// 程序化显示下拉菊花时,列表需要上滚露出菊花的高度
+    private static let refreshRevealHeight: CGFloat = 60
+    /// 程序化显示菊花前列表的位置,刷新结束后还原(避免首行被截断)
+    private var programmaticRefreshOrigin: CGPoint?
+    /// 还原偏移的令牌,避免上一轮的延迟还原覆盖新一轮刷新的位置
+    private var refreshRestoreToken: Int = 0
 
     init(forum: Forum) {
         self.forum = forum
@@ -323,6 +331,7 @@ final class ThreadListViewController: UIViewController {
         navigationItem.title = forum.name ?? "主题列表"
         setupCollectionView()
         navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "ellipsis.circle"), menu: makeMenu())
+        setupLoadingBar()
         setupPlaceholder()
         NotificationCenter.default.addObserver(
             self, selector: #selector(blacklistDidChange),
@@ -374,7 +383,10 @@ final class ThreadListViewController: UIViewController {
         guard !isLoading, page > 0, let loadedAt = lastDataRefreshAt else { return }
         guard Date().timeIntervalSince(loadedAt) > Self.dataStaleInterval else { return }
         lastDataRefreshAt = Date()
-        reloadFirstPage()
+        // 用系统下拉刷新菊花提示刷新中
+        beginRefreshingFromTop()
+        // 缓存先行展示旧列表,菊花持续到网络返回,避免整页 loading 盖住内容
+        reloadFirstPage(fromPullToRefresh: true)
     }
 
     private func reloadReadState(refreshTimes: Bool = false) async {
@@ -421,6 +433,9 @@ final class ThreadListViewController: UIViewController {
             // 归零后左右回到系统标准的 16pt 内容边距。
             section.contentInsets.leading = 0
             section.contentInsets.trailing = 0
+            // 列表只有一个 section,去掉 insetGrouped 默认约 35pt 的组顶留白,
+            // 让首行贴近导航栏;底部留白保留
+            section.contentInsets.top = 0
             return section
         }
         collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
@@ -429,7 +444,9 @@ final class ThreadListViewController: UIViewController {
         collectionView.delegate = self
 
         let refresh = UIRefreshControl()
-        refresh.addAction(UIAction { [weak self] _ in self?.reloadFirstPage(forceRefresh: true) }, for: .valueChanged)
+        refresh.addAction(UIAction { [weak self] _ in
+            self?.reloadFirstPage(forceRefresh: true, fromPullToRefresh: true)
+        }, for: .valueChanged)
         collectionView.refreshControl = refresh
 
         let threadRegistration = UICollectionView.CellRegistration<ThreadCell, Thread> { [weak self] cell, _, thread in
@@ -457,7 +474,6 @@ final class ThreadListViewController: UIViewController {
         }
 
         view.addSubview(collectionView)
-        setupPlaceholder()
     }
 
     private func makeMenu() -> UIMenu {
@@ -515,11 +531,20 @@ final class ThreadListViewController: UIViewController {
         }
     }
 
+    private func setupLoadingBar() {
+        view.addSubview(loadingBar)
+        loadingBar.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+            make.leading.trailing.equalToSuperview()
+            make.height.equalTo(LoadingBar.preferredHeight)
+        }
+    }
+
     private func setupPlaceholder() {
         placeholder.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(placeholder)
         NSLayoutConstraint.activate([
-            placeholder.topAnchor.constraint(equalTo: view.topAnchor),
+            placeholder.topAnchor.constraint(equalTo: loadingBar.bottomAnchor),
             placeholder.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             placeholder.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             placeholder.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -528,11 +553,57 @@ final class ThreadListViewController: UIViewController {
 
     // MARK: - Data
 
-    private func reloadFirstPage(forceRefresh: Bool = false) {
-        guard !isLoading else { return }
+    /// 程序化刷新时在列表顶部展示系统下拉刷新菊花。
+    /// refresh control 只有被「下拉露出」时才可见,所以要先滚到顶部再往上一段,
+    /// 否则 beginRefreshing 后菊花一直藏在导航栏后面看不见。
+    private func beginRefreshingFromTop() {
+        guard let control = collectionView.refreshControl, !control.isRefreshing else { return }
+        // 刚进页面时可能还没完成布局,先强制布局才能拿到正确的 adjustedContentInset
+        collectionView.layoutIfNeeded()
+        let topY = -collectionView.adjustedContentInset.top
+        if collectionView.contentOffset.y > topY - 1 {
+            // 记录拉动前的原始偏移,刷新结束后原样还原,避免首行被导航栏截断
+            programmaticRefreshOrigin = collectionView.contentOffset
+            collectionView.setContentOffset(
+                CGPoint(x: 0, y: topY - Self.refreshRevealHeight),
+                animated: true
+            )
+        }
+        control.beginRefreshing()
+    }
+
+    /// 结束刷新,并把为了让菊花露出而上滚的列表还原到刷新前的位置。
+    /// 不能立刻设置 offset:endRefreshing 会动画收缩 inset,此刻仍把 offset 钳制在露出位置,
+    /// 导致首行一直停在导航栏下方被截断。等收起动画结束后再还原。
+    private func endRefreshingFromTop() {
+        loadingBar.stopAnimating()
+        let origin = programmaticRefreshOrigin
+        programmaticRefreshOrigin = nil
+        collectionView.refreshControl?.endRefreshing()
+        guard let origin else { return }
+        refreshRestoreToken &+= 1
+        let token = refreshRestoreToken
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self, self.refreshRestoreToken == token else { return }
+            // 又发起了新一轮刷新则交给新一轮处理
+            guard !self.isLoading, self.programmaticRefreshOrigin == nil else { return }
+            // 只有列表仍停在「露出菊花」的位置才还原;用户已手动滚动就不干预
+            let revealedY = origin.y - Self.refreshRevealHeight
+            guard abs(self.collectionView.contentOffset.y - revealedY) < 4 else { return }
+            self.collectionView.setContentOffset(origin, animated: true)
+        }
+    }
+
+    private func reloadFirstPage(forceRefresh: Bool = false, fromPullToRefresh: Bool = false) {
+        // beginRefreshing 后若因 isLoading 直接返回,必须补一个 endRefreshing,否则菊花永不消失
+        guard !isLoading else {
+            if fromPullToRefresh { collectionView.refreshControl?.endRefreshing() }
+            return
+        }
         isLoading = true
         canLoadMore = true
         footerError = nil
+        loadingBar.stopAnimating()
         loadTask?.cancel()
         loadTask = Task { [weak self] in
             guard let self else { return }
@@ -549,9 +620,15 @@ final class ThreadListViewController: UIViewController {
                 self.canLoadMore = !cachedResult.threads.isEmpty
                 self.applySnapshot(animating: false)
                 self.placeholder.isHidden = !self.threads.isEmpty
-                self.collectionView.refreshControl?.endRefreshing()
-            } else {
+                // 缓存已上屏但仍在后台刷新:用导航栏下方细条提示,不打断阅读位置。
+                // 回前台/下拉刷新那条路径已有系统菊花,不重复显示细条
+                if !fromPullToRefresh {
+                    self.loadingBar.startAnimating()
+                }
+            } else if !fromPullToRefresh {
+                // 纯首次加载(无菊花提示的场景)才用整页 loading
                 placeholder.state = .loading("正在加载主题")
+                placeholder.isHidden = false
             }
 
             do {
@@ -571,11 +648,11 @@ final class ThreadListViewController: UIViewController {
                 if self.threads.isEmpty {
                     self.placeholder.state = .empty(icon: "tray", title: "暂无主题", message: "这个版块还没有主题")
                 }
-                self.collectionView.refreshControl?.endRefreshing()
+                self.endRefreshingFromTop()
             } catch {
                 guard !Task.isCancelled else { return }
                 self.isLoading = false
-                self.collectionView.refreshControl?.endRefreshing()
+                self.endRefreshingFromTop()
                 // 已有缓存内容:静默降级为 footer 提示,不清屏
                 if !self.threads.isEmpty {
                     self.footerError = (error as? LocalizedError)?.errorDescription ?? "加载失败"
