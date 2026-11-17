@@ -301,6 +301,10 @@ final class ThreadListViewController: UIViewController {
     private var selectedTypeId: String?
     private var isForumFavorite = false
     private var needsBlacklistReload = false
+    /// 最近一次第一页网络刷新时间,用于「后台超过一小时切回前台自动刷新」
+    private var lastDataRefreshAt: Date?
+    /// 切回前台时数据超过该时长则重新拉取第一页
+    private static let dataStaleInterval: TimeInterval = 3600
 
     init(forum: Forum) {
         self.forum = forum
@@ -323,6 +327,10 @@ final class ThreadListViewController: UIViewController {
         NotificationCenter.default.addObserver(
             self, selector: #selector(blacklistDidChange),
             name: BlacklistService.didChangeNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification, object: nil
         )
         Task { [weak self] in
             await BlacklistService.shared.reloadIfNeeded()
@@ -358,6 +366,15 @@ final class ThreadListViewController: UIViewController {
         } else {
             reloadFirstPage()
         }
+    }
+
+    /// 后台切回前台:列表数据超过一小时则重新拉取第一页刷新
+    @objc private func appWillEnterForeground() {
+        guard viewIfLoaded?.window != nil, navigationController?.topViewController === self else { return }
+        guard !isLoading, page > 0, let loadedAt = lastDataRefreshAt else { return }
+        guard Date().timeIntervalSince(loadedAt) > Self.dataStaleInterval else { return }
+        lastDataRefreshAt = Date()
+        reloadFirstPage()
     }
 
     private func reloadReadState(refreshTimes: Bool = false) async {
@@ -547,6 +564,8 @@ final class ThreadListViewController: UIViewController {
                 self.canLoadMore = !result.threads.isEmpty
                 self.isLoading = false
                 self.footerError = nil
+                // 记录网络刷新时间,供回前台的过期刷新判定
+                self.lastDataRefreshAt = Date()
                 self.applySnapshot(animating: false)
                 self.placeholder.isHidden = !self.threads.isEmpty
                 if self.threads.isEmpty {
